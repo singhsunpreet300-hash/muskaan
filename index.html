@@ -1,293 +1,367 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pa">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Muskaan & Sunny — Forever Begins</title>
+  <title>ਠੇਠ ਪੰਜਾਬੀ — Theth Punjabi</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&family=Noto+Sans+Gurmukhi:wght@300;400;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
 
   <!-- ══ NAV ══ -->
   <nav id="navbar">
-    <ul>
-      <li><a href="#story">Our Story</a></li>
-      <li><a href="#events">Events</a></li>
-      <li><a href="#gallery">Gallery</a></li>
-      <li><a href="#rsvp">RSVP</a></li>
-    </ul>
+    <div class="nav-inner">
+      <a class="nav-brand" href="#" data-view="home">
+        <span class="nav-brand-ik">ੴ</span>
+        <span class="nav-brand-text">ਠੇਠ ਪੰਜਾਬੀ</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#" data-view="home" class="nav-link active">Home</a></li>
+        <li><a href="#" data-view="vocabulary" class="nav-link">Vocabulary</a></li>
+        <li><a href="#" data-view="practice" class="nav-link">Practice</a></li>
+        <li><a href="#" data-view="tutor" class="nav-link">AI Tutor</a></li>
+      </ul>
+      <button class="nav-settings-btn" id="btn-settings" aria-label="Settings">⚙</button>
+    </div>
   </nav>
 
-  <!-- ══ HERO ══ -->
-  <header id="hero">
-    <div class="mandala mandala-left" aria-hidden="true"></div>
-    <div class="mandala mandala-right" aria-hidden="true"></div>
+  <!-- ══ APP VIEWS ══ -->
+  <main id="app">
 
-    <div class="hero-content">
-      <p class="hero-bless">ੴ ਸਤਿ ਨਾਮੁ ਕਰਤਾ ਪੁਰਖੁ</p>
-      <h1 class="hero-names">
-        <span class="name-bride">Muskaan</span>
-        <span class="hero-amp">&amp;</span>
-        <span class="name-groom">Sunny</span>
-      </h1>
-      <p class="hero-tagline">Together by the grace of Waheguru</p>
-      <div class="hero-divider">
-        <span class="divider-flower">✿</span>
-        <span class="divider-line"></span>
-        <span class="divider-flower">✿</span>
-      </div>
-      <p class="hero-date">Saturday, the 14th of March, 2026</p>
-      <p class="hero-venue">Gurdwara Sahib · Ludhiana, Punjab</p>
+    <!-- ── HOME VIEW ── -->
+    <section class="view" id="view-home">
 
-      <!-- Countdown -->
-      <div class="countdown" id="countdown">
-        <div class="countdown-unit"><span id="cd-days">--</span><label>Days</label></div>
-        <div class="countdown-sep">:</div>
-        <div class="countdown-unit"><span id="cd-hours">--</span><label>Hours</label></div>
-        <div class="countdown-sep">:</div>
-        <div class="countdown-unit"><span id="cd-mins">--</span><label>Minutes</label></div>
-        <div class="countdown-sep">:</div>
-        <div class="countdown-unit"><span id="cd-secs">--</span><label>Seconds</label></div>
-      </div>
+      <!-- Hero -->
+      <header id="home-hero">
+        <div class="mandala mandala-left" aria-hidden="true"></div>
+        <div class="mandala mandala-right" aria-hidden="true"></div>
 
-      <a href="#rsvp" class="btn-primary">RSVP Now</a>
-    </div>
-
-    <!-- Floating marigolds -->
-    <div class="marigold m1" aria-hidden="true">🌼</div>
-    <div class="marigold m2" aria-hidden="true">🌸</div>
-    <div class="marigold m3" aria-hidden="true">🌼</div>
-    <div class="marigold m4" aria-hidden="true">🌸</div>
-    <div class="marigold m5" aria-hidden="true">🌼</div>
-  </header>
-
-  <!-- ══ OUR STORY ══ -->
-  <section id="story" class="section story-section">
-    <div class="section-inner">
-      <span class="section-tag">Our Story</span>
-      <h2 class="section-title">How It All Began</h2>
-      <div class="divider-gold"></div>
-
-      <div class="story-grid">
-        <div class="story-card fade-in">
-          <div class="story-icon">💛</div>
-          <h3>The First Meeting</h3>
-          <p>Two souls brought together by Waheguru's will at a family gathering in Chandigarh. A glance across a crowded room, and the universe smiled.</p>
-        </div>
-        <div class="story-card fade-in">
-          <div class="story-icon">💌</div>
-          <h3>The Roka</h3>
-          <p>Families united with blessings, sweets, and warm embraces. The elders beamed with joy as they officially sealed the bond between two families.</p>
-        </div>
-        <div class="story-card fade-in">
-          <div class="story-icon">💍</div>
-          <h3>The Promise</h3>
-          <p>Under a canopy of stars and fairy lights, Sunny got down on one knee. Muskaan's laughter was the only answer he needed.</p>
-        </div>
-      </div>
-
-      <blockquote class="story-quote">
-        "Dhan Dhan Ram Das Gur, Jin Siriaa Tinai Savaariaa"
-        <cite>— Guru Granth Sahib Ji</cite>
-      </blockquote>
-    </div>
-  </section>
-
-  <!-- ══ EVENTS ══ -->
-  <section id="events" class="section events-section">
-    <div class="section-inner">
-      <span class="section-tag">Celebrations</span>
-      <h2 class="section-title">Wedding Events</h2>
-      <div class="divider-gold"></div>
-
-      <div class="events-grid">
-
-        <div class="event-card fade-in">
-          <div class="event-badge">01</div>
-          <div class="event-icon">🌿</div>
-          <h3>Mehendi</h3>
-          <p class="event-date">Thursday · 12 March 2026</p>
-          <p class="event-time">4:00 PM onwards</p>
-          <p class="event-venue">Kapoor Residence, Model Town, Ludhiana</p>
-          <p class="event-desc">A vibrant afternoon of intricate henna art, folk songs, and dancing. Ladies are encouraged to wear colourful salwar suits.</p>
-        </div>
-
-        <div class="event-card fade-in">
-          <div class="event-badge">02</div>
-          <div class="event-icon">🎶</div>
-          <h3>Sangeet</h3>
-          <p class="event-date">Friday · 13 March 2026</p>
-          <p class="event-time">7:00 PM onwards</p>
-          <p class="event-venue">Shivalik Banquet Hall, Ludhiana</p>
-          <p class="event-desc">A night filled with bhangra, giddha, and Bollywood beats as both families celebrate with song and dance. Dress: Smart Festive.</p>
-        </div>
-
-        <div class="event-card featured fade-in">
-          <div class="event-badge">03</div>
-          <div class="event-icon">🪯</div>
-          <h3>Anand Karaj</h3>
-          <p class="event-date">Saturday · 14 March 2026</p>
-          <p class="event-time">9:00 AM — 12:00 PM</p>
-          <p class="event-venue">Gurdwara Sahib, Civil Lines, Ludhiana</p>
-          <p class="event-desc">The sacred Sikh wedding ceremony. The couple will take four Laavan (circles) around Sri Guru Granth Sahib Ji. Please cover your head and remove footwear before entering the Gurdwara.</p>
-          <span class="event-note">⚠ Heads must be covered · No leather items</span>
-        </div>
-
-        <div class="event-card fade-in">
-          <div class="event-badge">04</div>
-          <div class="event-icon">🥂</div>
-          <h3>Reception</h3>
-          <p class="event-date">Saturday · 14 March 2026</p>
-          <p class="event-time">7:00 PM onwards</p>
-          <p class="event-venue">The Grand Imperial, Ferozepur Road, Ludhiana</p>
-          <p class="event-desc">Join us for an evening of celebration, sumptuous Punjabi cuisine, and dancing. Dress: Formal / Indian Ethnic.</p>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ GALLERY ══ -->
-  <section id="gallery" class="section gallery-section">
-    <div class="section-inner">
-      <span class="section-tag">Memories</span>
-      <h2 class="section-title">Our Gallery</h2>
-      <div class="divider-gold"></div>
-
-      <div class="gallery-grid">
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Engagement</span></div>
-        </div>
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Roka Ceremony</span></div>
-        </div>
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Pre-Wedding Shoot</span></div>
-        </div>
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Together</span></div>
-        </div>
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Family</span></div>
-        </div>
-        <div class="gallery-placeholder fade-in">
-          <div class="gallery-overlay"><span>Forever</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ TRAVEL ══ -->
-  <section id="travel" class="section travel-section">
-    <div class="section-inner">
-      <span class="section-tag">Getting Here</span>
-      <h2 class="section-title">Travel &amp; Stay</h2>
-      <div class="divider-gold"></div>
-
-      <div class="travel-grid">
-        <div class="travel-card fade-in">
-          <div class="travel-icon">✈️</div>
-          <h3>By Air</h3>
-          <p>Fly into <strong>Sri Guru Ram Dass Jee International Airport, Amritsar (ATQ)</strong> or <strong>Chandigarh Airport (IXC)</strong>. Ludhiana is ~90 min from both. We recommend booking shuttles in advance.</p>
-        </div>
-        <div class="travel-card fade-in">
-          <div class="travel-icon">🚆</div>
-          <h3>By Train</h3>
-          <p><strong>Ludhiana Junction</strong> is well connected to Delhi, Amritsar, Chandigarh, and Mumbai. Taxis and autos are available right outside the station.</p>
-        </div>
-        <div class="travel-card fade-in">
-          <div class="travel-icon">🏨</div>
-          <h3>Recommended Stay</h3>
-          <p>We have reserved a room block at <strong>Hyatt Regency Ludhiana</strong>. Mention code <strong>MUSKAAN2026</strong> for a special rate. Limited rooms available — book early!</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ RSVP ══ -->
-  <section id="rsvp" class="section rsvp-section">
-    <div class="section-inner">
-      <span class="section-tag">Join Us</span>
-      <h2 class="section-title">RSVP</h2>
-      <div class="divider-gold"></div>
-      <p class="rsvp-intro">Kindly respond by <strong>28 February 2026</strong>. We cannot wait to celebrate with you!</p>
-
-      <form id="rsvp-form" class="rsvp-form" novalidate>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="name">Full Name *</label>
-            <input type="text" id="name" name="name" placeholder="Harpreet Singh" required />
+        <div class="hero-content">
+          <p class="hero-bless">ੴ ਸਤਿ ਨਾਮੁ</p>
+          <h1 class="hero-heading gurmukhi">ਠੇਠ ਪੰਜਾਬੀ ਸਿੱਖੋ</h1>
+          <p class="hero-sub">Learn Pure Punjabi — the way it has always been spoken</p>
+          <div class="hero-divider">
+            <span class="divider-flower">✿</span>
+            <span class="divider-line"></span>
+            <span class="divider-flower">✿</span>
           </div>
-          <div class="form-group">
-            <label for="email">Email Address *</label>
-            <input type="email" id="email" name="email" placeholder="you@example.com" required />
+          <p class="hero-tagline">Rooted in Gurmukhī script · Backed by AI · Inspired by tradition</p>
+          <div class="hero-ctas">
+            <button class="btn-primary" data-view="vocabulary">Browse Vocabulary</button>
+            <button class="btn-secondary" data-view="tutor">Talk to AI Tutor</button>
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="guests">Number of Guests</label>
-            <select id="guests" name="guests">
-              <option value="1">1 — Just me</option>
-              <option value="2" selected>2 — Plus one</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5+">5 or more</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="attending">Are you attending?</label>
-            <select id="attending" name="attending">
-              <option value="yes">Joyfully accepts!</option>
-              <option value="no">Regretfully declines</option>
-            </select>
-          </div>
-        </div>
+        <!-- Floating marigolds -->
+        <div class="marigold m1" aria-hidden="true">🌼</div>
+        <div class="marigold m2" aria-hidden="true">🌸</div>
+        <div class="marigold m3" aria-hidden="true">🌼</div>
+        <div class="marigold m4" aria-hidden="true">🌸</div>
+        <div class="marigold m5" aria-hidden="true">🌼</div>
+      </header>
 
-        <div class="form-group form-group-full">
-          <label>Which events will you attend?</label>
-          <div class="checkbox-group">
-            <label class="checkbox-label"><input type="checkbox" name="events" value="mehendi" checked /> Mehendi</label>
-            <label class="checkbox-label"><input type="checkbox" name="events" value="sangeet" checked /> Sangeet</label>
-            <label class="checkbox-label"><input type="checkbox" name="events" value="anand-karaj" checked /> Anand Karaj</label>
-            <label class="checkbox-label"><input type="checkbox" name="events" value="reception" checked /> Reception</label>
+      <!-- Word of the Day -->
+      <section class="section wotd-section">
+        <div class="section-inner">
+          <span class="section-tag">Daily Learning</span>
+          <h2 class="section-title">Word of the Day</h2>
+          <div class="divider-gold"></div>
+          <div class="wotd-card fade-in" id="wotd-card">
+            <div class="wotd-gurmukhi gurmukhi" id="wotd-gur">ਲੋਢਾ</div>
+            <div class="wotd-latin" id="wotd-latin">loṛhā</div>
+            <div class="wotd-pos" id="wotd-pos">noun · masculine</div>
+            <div class="wotd-meaning" id="wotd-meaning">a heavy stone roller used to flatten rooftops</div>
+            <div class="wotd-example gurmukhi" id="wotd-example">ਛੱਤ ਉੱਤੇ ਲੋਢਾ ਫੇਰੋ।</div>
+            <div class="wotd-example-tr" id="wotd-example-tr">Roll the stone on the roof.</div>
+            <button class="btn-listen wotd-listen" id="wotd-listen-btn" aria-label="Listen to pronunciation">
+              <span class="listen-icon">🔊</span> Listen
+            </button>
           </div>
         </div>
+      </section>
 
-        <div class="form-group form-group-full">
-          <label for="dietary">Dietary Requirements</label>
-          <input type="text" id="dietary" name="dietary" placeholder="Vegetarian, Jain, allergies, etc." />
+      <!-- Features -->
+      <section class="section features-section">
+        <div class="section-inner">
+          <span class="section-tag">What You Get</span>
+          <h2 class="section-title">Why Theth Punjabi?</h2>
+          <div class="divider-gold"></div>
+
+          <div class="features-grid">
+            <div class="feature-card fade-in">
+              <div class="feature-icon">📖</div>
+              <h3>Deep Vocabulary</h3>
+              <p>Thousands of authentic Punjabi words drawn from classical literature, folk poetry, and everyday village speech — not just transliterations.</p>
+            </div>
+            <div class="feature-card fade-in">
+              <div class="feature-icon">🎙️</div>
+              <h3>Speak & Listen</h3>
+              <p>Native-quality text-to-speech and browser speech recognition so you can hear correct Punjabi pronunciation and practise speaking aloud.</p>
+            </div>
+            <div class="feature-card fade-in">
+              <div class="feature-icon">🤖</div>
+              <h3>AI Conversation Tutor</h3>
+              <p>Chat in Punjabi with an AI tutor powered by Claude. Get instant corrections, explanations, and cultural context for any word or phrase.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Theth Explainer -->
+      <section class="section explainer-section">
+        <div class="section-inner">
+          <span class="section-tag">About the Language</span>
+          <h2 class="section-title">What is "Theth" Punjabi?</h2>
+          <div class="divider-gold"></div>
+          <div class="explainer-body fade-in">
+            <p><strong>ਠੇਠ (Theth)</strong> means <em>pure</em> or <em>genuine</em>. Theth Punjabi refers to the unadulterated, classical form of the language — rich with words that have survived from ancient Indo-Aryan roots, preserved in Guru Granth Sahib Ji, in the poetry of Bulla Shah and Waris Shah, and in the mouths of elders in the villages of Majha, Malwa, and Doaba.</p>
+            <p>Unlike modern colloquial Punjabi — which borrows heavily from Urdu, Hindi, and English — Theth Punjabi carries the full flavour of the culture: its agricultural metaphors, its devotional vocabulary, its earthy humour.</p>
+            <blockquote class="explainer-quote">
+              "ਬੋਲੀ ਉਹ ਜੋ ਦਿਲ ਛੂਹੇ।"
+              <cite>The language that touches the heart.</cite>
+            </blockquote>
+          </div>
+        </div>
+      </section>
+
+    </section><!-- /view-home -->
+
+
+    <!-- ── VOCABULARY VIEW ── -->
+    <section class="view hidden" id="view-vocabulary">
+      <div class="section section-inner vocab-wrapper">
+        <span class="section-tag">Explore Words</span>
+        <h2 class="section-title">Vocabulary</h2>
+        <div class="divider-gold"></div>
+
+        <!-- Search + filter bar -->
+        <div class="vocab-toolbar">
+          <div class="vocab-search-wrap">
+            <input type="search" id="vocab-search" placeholder="Search in Punjabi or English…" autocomplete="off" />
+            <span class="vocab-search-icon">🔍</span>
+          </div>
+          <div class="vocab-categories" id="vocab-categories">
+            <button class="cat-chip active" data-cat="all">All</button>
+            <button class="cat-chip" data-cat="body">Body</button>
+            <button class="cat-chip" data-cat="nature">Nature</button>
+            <button class="cat-chip" data-cat="home">Home</button>
+            <button class="cat-chip" data-cat="farm">Farm</button>
+            <button class="cat-chip" data-cat="emotion">Emotion</button>
+            <button class="cat-chip" data-cat="food">Food</button>
+            <button class="cat-chip" data-cat="time">Time</button>
+            <button class="cat-chip" data-cat="kinship">Kinship</button>
+          </div>
         </div>
 
-        <div class="form-group form-group-full">
-          <label for="message">A message for Muskaan &amp; Sunny</label>
-          <textarea id="message" name="message" rows="4" placeholder="Share your blessings…"></textarea>
+        <!-- Word lookup bar -->
+        <div class="vocab-lookup-bar">
+          <input type="text" id="vocab-lookup" placeholder="Type any Punjabi word for full details…" autocomplete="off" />
+          <button class="btn-primary btn-sm" id="btn-lookup">Look Up</button>
         </div>
 
-        <button type="submit" class="btn-primary btn-submit">Send RSVP 💛</button>
-      </form>
+        <!-- Vocab grid -->
+        <div class="vocab-grid" id="vocab-grid">
+          <!-- Populated by script.js -->
+          <div class="vocab-empty hidden" id="vocab-empty">No words found. Try a different search.</div>
+        </div>
 
-      <div id="rsvp-success" class="rsvp-success hidden">
-        <div class="success-icon">🌸</div>
-        <h3>Waheguru Ji Ka Khalsa, Waheguru Ji Ki Fateh!</h3>
-        <p>Thank you for your RSVP. We are overjoyed to celebrate with you!</p>
+        <!-- Detail panel -->
+        <div class="vocab-detail hidden" id="vocab-detail">
+          <button class="vocab-detail-close" id="vocab-detail-close" aria-label="Close">✕</button>
+          <div class="vd-gurmukhi gurmukhi" id="vd-gur"></div>
+          <div class="vd-latin" id="vd-latin"></div>
+          <div class="vd-pos" id="vd-pos"></div>
+          <div class="vd-meaning" id="vd-meaning"></div>
+          <div class="vd-example gurmukhi" id="vd-example"></div>
+          <div class="vd-example-tr" id="vd-example-tr"></div>
+          <div class="vd-actions">
+            <button class="btn-listen" id="vd-listen-btn"><span class="listen-icon">🔊</span> Listen</button>
+            <button class="btn-practice" id="vd-practice-btn">Practice This Word</button>
+          </div>
+        </div>
+
       </div>
-    </div>
-  </section>
+    </section><!-- /view-vocabulary -->
 
-  <!-- ══ FOOTER ══ -->
-  <footer id="footer">
-    <div class="footer-pattern" aria-hidden="true"></div>
-    <div class="footer-content">
-      <p class="footer-names">Muskaan &amp; Sunny</p>
-      <p class="footer-bless">ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖ਼ਾਲਸਾ, ਵਾਹਿਗੁਰੂ ਜੀ ਕੀ ਫ਼ਤਹਿ</p>
-      <p class="footer-date">14 · 03 · 2026</p>
-      <p class="footer-copy">Made with 💛 for a lifetime of love</p>
+
+    <!-- ── PRACTICE VIEW ── -->
+    <section class="view hidden" id="view-practice">
+      <div class="section section-inner practice-wrapper">
+        <span class="section-tag">Active Learning</span>
+        <h2 class="section-title">Practice</h2>
+        <div class="divider-gold"></div>
+
+        <!-- Word selector -->
+        <div class="practice-selector">
+          <label for="practice-cat-select">Practice category:</label>
+          <select id="practice-cat-select">
+            <option value="all">All Categories</option>
+            <option value="body">Body</option>
+            <option value="nature">Nature</option>
+            <option value="home">Home</option>
+            <option value="farm">Farm</option>
+            <option value="emotion">Emotion</option>
+            <option value="food">Food</option>
+            <option value="time">Time</option>
+            <option value="kinship">Kinship</option>
+          </select>
+          <button class="btn-primary btn-sm" id="btn-new-word">New Word</button>
+        </div>
+
+        <!-- Practice card -->
+        <div class="practice-card fade-in" id="practice-card">
+          <div class="practice-prompt" id="practice-prompt">
+            <!-- Content injected by JS -->
+            <div class="pc-gurmukhi gurmukhi" id="pc-gur">ਪਾਣੀ</div>
+            <div class="pc-latin" id="pc-latin">pāṇī</div>
+          </div>
+
+          <div class="practice-reveal hidden" id="practice-reveal">
+            <div class="pc-meaning" id="pc-meaning">water</div>
+            <div class="pc-pos" id="pc-pos">noun · masculine</div>
+            <div class="pc-example gurmukhi" id="pc-example">ਪਾਣੀ ਪੀਓ।</div>
+            <div class="pc-example-tr" id="pc-example-tr">Drink water.</div>
+          </div>
+
+          <div class="practice-actions">
+            <button class="btn-listen" id="pc-listen-btn"><span class="listen-icon">🔊</span> Listen</button>
+            <button class="btn-primary btn-sm" id="btn-reveal" style="display:inline-block;">Show Meaning</button>
+            <button class="btn-record" id="btn-record" aria-label="Record your pronunciation">🎙 Speak</button>
+          </div>
+
+          <div class="practice-feedback hidden" id="practice-feedback">
+            <div class="feedback-icon" id="feedback-icon">✓</div>
+            <div class="feedback-msg" id="feedback-msg"></div>
+          </div>
+
+          <div class="practice-rating hidden" id="practice-rating">
+            <p>How well did you know this?</p>
+            <div class="rating-btns">
+              <button class="rating-btn rating-bad"  data-rating="1">Again</button>
+              <button class="rating-btn rating-ok"   data-rating="2">Hard</button>
+              <button class="rating-btn rating-good" data-rating="3">Good</button>
+              <button class="rating-btn rating-easy" data-rating="4">Easy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session stats -->
+        <div class="practice-stats">
+          <div class="stat-pill"><span id="stat-seen">0</span> seen</div>
+          <div class="stat-pill"><span id="stat-correct">0</span> correct</div>
+          <div class="stat-pill"><span id="stat-streak">0</span> streak</div>
+        </div>
+
+      </div>
+    </section><!-- /view-practice -->
+
+
+    <!-- ── TUTOR VIEW ── -->
+    <section class="view hidden" id="view-tutor">
+      <div class="tutor-layout">
+
+        <!-- Sidebar -->
+        <aside class="tutor-sidebar">
+          <div class="sidebar-section">
+            <h3 class="sidebar-heading">Conversation Starters</h3>
+            <ul class="starter-list" id="starter-list">
+              <li><button class="starter-btn" data-msg="ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੰਜਾਬੀ ਸਿੱਖਣਾ ਚਾਹੁੰਦਾ ਹਾਂ।">Greet & introduce yourself</button></li>
+              <li><button class="starter-btn" data-msg="ਮੈਨੂੰ ਠੇਠ ਪੰਜਾਬੀ ਵਿੱਚ ਰੁੱਤਾਂ ਬਾਰੇ ਦੱਸੋ।">Ask about the seasons</button></li>
+              <li><button class="starter-btn" data-msg="ਦੱਸੋ ਕਿ ਪੰਜਾਬੀ ਵਿੱਚ ਖੇਤੀ ਦੇ ਸ਼ਬਦ ਕੀ ਹਨ।">Farming vocabulary</button></li>
+              <li><button class="starter-btn" data-msg="ਮੈਂ ਇੱਕ ਵਾਕ ਬਣਾਇਆ ਹੈ। ਕੀ ਤੁਸੀਂ ਠੀਕ ਕਰ ਸਕਦੇ ਹੋ?">Correct my sentence</button></li>
+              <li><button class="starter-btn" data-msg="ਵਾਰਿਸ ਸ਼ਾਹ ਦੀ ਕਵਿਤਾ ਵਿੱਚੋਂ ਇੱਕ ਸਤਰ ਦੱਸੋ।">Quote Waris Shah</button></li>
+              <li><button class="starter-btn" data-msg="ਠੇਠ ਪੰਜਾਬੀ ਅਤੇ ਆਮ ਪੰਜਾਬੀ ਵਿੱਚ ਕੀ ਫ਼ਰਕ ਹੈ?">Theth vs modern Punjabi</button></li>
+            </ul>
+          </div>
+          <div class="sidebar-section">
+            <h3 class="sidebar-heading">API Key</h3>
+            <div class="api-key-status" id="api-key-status">
+              <span class="api-dot api-dot-none" id="api-dot"></span>
+              <span id="api-status-text">No key set</span>
+            </div>
+            <button class="btn-secondary btn-sm" id="btn-set-key">Set API Key</button>
+          </div>
+          <div class="sidebar-section">
+            <button class="btn-outline btn-sm" id="btn-reset-chat">Reset Chat</button>
+          </div>
+        </aside>
+
+        <!-- Chat main -->
+        <div class="tutor-main">
+          <div class="chat-window" id="chat-window" role="log" aria-live="polite" aria-label="Chat messages">
+            <!-- Welcome message -->
+            <div class="chat-msg chat-msg-ai" id="chat-welcome">
+              <div class="chat-avatar">ੴ</div>
+              <div class="chat-bubble">
+                <p>ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! I am your Theth Punjabi AI Tutor. Ask me anything in Punjabi or English — I will respond in Punjabi with English explanations. To unlock full AI responses, add your Claude API key in the sidebar.</p>
+              </div>
+            </div>
+          </div>
+          <form class="chat-input-bar" id="chat-form" autocomplete="off">
+            <textarea
+              id="chat-input"
+              rows="1"
+              placeholder="Type in Punjabi or English… (Enter to send, Shift+Enter for newline)"
+              aria-label="Message input"
+            ></textarea>
+            <button type="submit" class="btn-primary chat-send-btn" aria-label="Send message">Send</button>
+          </form>
+        </div>
+
+      </div>
+    </section><!-- /view-tutor -->
+
+  </main><!-- /app -->
+
+
+  <!-- ══ SETTINGS MODAL ══ -->
+  <div class="modal-overlay hidden" id="modal-overlay"></div>
+  <div class="modal hidden" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Settings</h2>
+      <button class="modal-close" id="modal-close" aria-label="Close settings">✕</button>
     </div>
-  </footer>
+    <div class="modal-body">
+
+      <div class="settings-group">
+        <label class="settings-label" for="settings-api-key">Claude API Key</label>
+        <input type="password" id="settings-api-key" placeholder="sk-ant-…" autocomplete="off" />
+        <p class="settings-hint">Your key is stored only in your browser's localStorage and never sent to any server except Anthropic.</p>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label" for="settings-tts-lang">TTS Language Code</label>
+        <input type="text" id="settings-tts-lang" placeholder="pa-IN" value="pa-IN" />
+        <p class="settings-hint">Web Speech API language code for Punjabi text-to-speech.</p>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label" for="settings-tutor-mode">Tutor Response Mode</label>
+        <select id="settings-tutor-mode">
+          <option value="bilingual">Bilingual (Punjabi + English)</option>
+          <option value="punjabi">Punjabi only</option>
+          <option value="english">English only</option>
+        </select>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">Clear Progress Data</label>
+        <button class="btn-outline btn-sm" id="btn-clear-progress">Clear All Progress</button>
+        <p class="settings-hint">Resets your practice session stats and word history.</p>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" id="btn-save-settings">Save Settings</button>
+    </div>
+  </div>
+
+
+  <!-- ══ TOAST ══ -->
+  <div class="toast hidden" id="toast" role="status" aria-live="assertive"></div>
 
   <script src="script.js"></script>
 </body>
