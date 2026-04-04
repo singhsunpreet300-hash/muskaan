@@ -94,11 +94,11 @@
             <div class="feature-card fade-in">
               <div class="feature-icon">📖</div>
               <h3>Deep Vocabulary</h3>
-              <p>Thousands of authentic Punjabi words drawn from classical literature, folk poetry, and everyday village speech — not just transliterations.</p>
+              <p>Hundreds of authentic Punjabi words drawn from classical literature, folk poetry, and everyday village speech — not just transliterations.</p>
             </div>
             <div class="feature-card fade-in">
               <div class="feature-icon">🎙️</div>
-              <h3>Speak & Listen</h3>
+              <h3>Speak &amp; Listen</h3>
               <p>Native-quality text-to-speech and browser speech recognition so you can hear correct Punjabi pronunciation and practise speaking aloud.</p>
             </div>
             <div class="feature-card fade-in">
@@ -214,7 +214,6 @@
         <!-- Practice card -->
         <div class="practice-card fade-in" id="practice-card">
           <div class="practice-prompt" id="practice-prompt">
-            <!-- Content injected by JS -->
             <div class="pc-gurmukhi gurmukhi" id="pc-gur">ਪਾਣੀ</div>
             <div class="pc-latin" id="pc-latin">pāṇī</div>
           </div>
@@ -228,7 +227,7 @@
 
           <div class="practice-actions">
             <button class="btn-listen" id="pc-listen-btn"><span class="listen-icon">🔊</span> Listen</button>
-            <button class="btn-primary btn-sm" id="btn-reveal" style="display:inline-block;">Show Meaning</button>
+            <button class="btn-primary btn-sm" id="btn-reveal">Show Meaning</button>
             <button class="btn-record" id="btn-record" aria-label="Record your pronunciation">🎙 Speak</button>
           </div>
 
@@ -268,7 +267,7 @@
           <div class="sidebar-section">
             <h3 class="sidebar-heading">Conversation Starters</h3>
             <ul class="starter-list" id="starter-list">
-              <li><button class="starter-btn" data-msg="ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੰਜਾਬੀ ਸਿੱਖਣਾ ਚਾਹੁੰਦਾ ਹਾਂ।">Greet & introduce yourself</button></li>
+              <li><button class="starter-btn" data-msg="ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਪੰਜਾਬੀ ਸਿੱਖਣਾ ਚਾਹੁੰਦਾ ਹਾਂ।">Greet &amp; introduce yourself</button></li>
               <li><button class="starter-btn" data-msg="ਮੈਨੂੰ ਠੇਠ ਪੰਜਾਬੀ ਵਿੱਚ ਰੁੱਤਾਂ ਬਾਰੇ ਦੱਸੋ।">Ask about the seasons</button></li>
               <li><button class="starter-btn" data-msg="ਦੱਸੋ ਕਿ ਪੰਜਾਬੀ ਵਿੱਚ ਖੇਤੀ ਦੇ ਸ਼ਬਦ ਕੀ ਹਨ।">Farming vocabulary</button></li>
               <li><button class="starter-btn" data-msg="ਮੈਂ ਇੱਕ ਵਾਕ ਬਣਾਇਆ ਹੈ। ਕੀ ਤੁਸੀਂ ਠੀਕ ਕਰ ਸਕਦੇ ਹੋ?">Correct my sentence</button></li>
@@ -363,6 +362,10 @@
   <!-- ══ TOAST ══ -->
   <div class="toast hidden" id="toast" role="status" aria-live="assertive"></div>
 
+  <script src="vocabulary.js"></script>
+  <script src="vocabulary-wt.js"></script>
+  <script src="speech.js"></script>
+  <script src="ai-tutor.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
