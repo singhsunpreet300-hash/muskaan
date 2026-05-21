@@ -13,7 +13,11 @@ const SETTINGS_KEY = 'muskaan_settings';
 const defaultSettings = {
   darkMode: false,
   difficulty: 'beginner',
-  fontSize: 16
+  fontSize: 16,
+  voiceOutput: true,
+  autoSpeak: false,
+  speechRate: 1.0,
+  voiceInput: true
 };
 
 const defaultState = {
@@ -31,6 +35,95 @@ function loadJSON(key, fallback) {
 }
 function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+
+// ── Voice Engine ──
+const CAN_SPEAK = 'speechSynthesis' in window;
+const CAN_LISTEN = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function findVoiceLang() {
+  if (!CAN_SPEAK) return 'pa-IN';
+  const voices = speechSynthesis.getVoices();
+  if (voices.some(v => v.lang.startsWith('pa'))) return 'pa-IN';
+  if (voices.some(v => v.lang.startsWith('hi'))) return 'hi-IN';
+  return 'pa-IN';
+}
+
+function speak(text, onEnd) {
+  if (!CAN_SPEAK || !settings.voiceOutput || !text) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = settings.speechRate;
+  utter.lang = findVoiceLang();
+  const voices = speechSynthesis.getVoices();
+  const paVoice = voices.find(v => v.lang.startsWith('pa'));
+  const hiVoice = voices.find(v => v.lang.startsWith('hi'));
+  if (paVoice) utter.voice = paVoice;
+  else if (hiVoice) { utter.voice = hiVoice; utter.lang = 'hi-IN'; }
+  if (onEnd) utter.onend = onEnd;
+  utter.onerror = () => {};
+  speechSynthesis.speak(utter);
+}
+
+let activeRecognition = null;
+
+function startListening(onResult, onError) {
+  if (!CAN_LISTEN || !settings.voiceInput) return;
+  stopListening();
+  const recog = new SpeechRec();
+  recog.lang = 'pa-IN';
+  recog.interimResults = false;
+  recog.maxAlternatives = 3;
+  recog.continuous = false;
+  recog.onresult = (e) => {
+    const results = [];
+    for (let i = 0; i < e.results[0].length; i++) {
+      results.push(e.results[0][i].transcript.trim());
+    }
+    onResult(results);
+  };
+  recog.onerror = (e) => {
+    if (e.error === 'not-allowed') {
+      if (onError) onError('Microphone access denied.');
+    } else if (e.error === 'no-speech') {
+      if (onError) onError('No speech detected. Try again.');
+    } else {
+      if (recog.lang === 'pa-IN') {
+        recog.lang = 'hi-IN';
+        try { recog.start(); } catch(_) {}
+        return;
+      }
+      if (onError) onError('Speech recognition error.');
+    }
+  };
+  recog.onend = () => { activeRecognition = null; };
+  activeRecognition = recog;
+  try { recog.start(); } catch(_) {
+    if (onError) onError('Could not start microphone.');
+  }
+}
+
+function stopListening() {
+  if (activeRecognition) {
+    try { activeRecognition.abort(); } catch(_) {}
+    activeRecognition = null;
+  }
+}
+
+function normalizeGurmukhi(s) {
+  return s.replace(/[\s।,.!?ਁਂਃ਼੍]/g, '').toLowerCase();
+}
+
+function speakBtnHTML(text, cls) {
+  if (!CAN_SPEAK) return '';
+  const safe = String(text).replace(/"/g, '&quot;');
+  return '<button class="voice-btn speak-btn ' + (cls || '') + '" data-speak="' + safe + '" title="Listen">&#128264;</button>';
+}
+
+function micBtnHTML(id, cls) {
+  if (!CAN_LISTEN) return '';
+  return '<button class="voice-btn mic-btn ' + (cls || '') + '" id="' + id + '" title="Speak">&#127908;</button>';
+}
 
 // ── Inject Styles ──
 function injectStyles() {
@@ -592,6 +685,102 @@ function injectStyles() {
       .mc-options { grid-template-columns: 1fr; }
       .flashcard .front-text { font-size: 2.2rem; }
     }
+
+    /* ── Voice Buttons ── */
+    .voice-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px; height: 44px;
+      min-width: 44px; min-height: 44px;
+      border: 1.5px solid var(--gold, #C9921A);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--gold, #C9921A);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all .2s;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .voice-btn:hover, .voice-btn:active {
+      background: rgba(201,146,26,.15);
+    }
+    .voice-btn.speaking {
+      background: rgba(201,146,26,.15);
+      animation: pulse-speak .8s ease-in-out infinite;
+    }
+    .voice-btn.listening {
+      background: rgba(231,76,60,.12);
+      border-color: #E74C3C;
+      color: #E74C3C;
+      animation: pulse-mic 1s ease-in-out infinite;
+    }
+    @keyframes pulse-speak {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    @keyframes pulse-mic {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(231,76,60,.3); }
+      50% { box-shadow: 0 0 0 8px rgba(231,76,60,0); }
+    }
+    .vocab-card .voice-btn {
+      position: absolute;
+      top: .8rem; right: 2.6rem;
+    }
+    .flashcard .voice-btn { margin-top: .6rem; }
+    .mc-question .voice-btn { margin-top: .5rem; }
+    .type-prompt .voice-btn { margin-top: .5rem; }
+    .voice-row {
+      display: flex; gap: .5rem;
+      align-items: center; justify-content: center;
+      margin-top: .5rem;
+    }
+    .chat-input-row .voice-btn { flex-shrink: 0; }
+    .chat-msg .voice-btn {
+      width: 32px; height: 32px; min-width: 32px; min-height: 32px;
+      font-size: .9rem; margin-top: .3rem;
+    }
+    .setting-section-label {
+      font-family: var(--ff-display, 'Playfair Display', serif);
+      font-size: 1rem;
+      color: var(--red-dark, #5C0F0F);
+      margin-top: 1rem; margin-bottom: .3rem;
+      padding-top: .8rem;
+      border-top: 2px solid rgba(201,146,26,.2);
+    }
+    .voice-support-notice {
+      font-size: .75rem;
+      color: var(--text-light, #8B6345);
+      padding: .5rem 0; line-height: 1.5;
+    }
+    .speak-prompt { text-align: center; margin-bottom: 1.5rem; }
+    .speak-prompt .speak-target {
+      font-size: 2.8rem;
+      color: var(--red-dark, #5C0F0F);
+      margin-bottom: .3rem;
+    }
+    .speak-prompt .speak-sub {
+      font-size: .9rem;
+      color: var(--text-light, #8B6345);
+      font-style: italic;
+    }
+    .speak-actions {
+      display: flex; gap: 1rem;
+      justify-content: center; align-items: center;
+      margin-bottom: 1rem;
+    }
+    .speak-actions .voice-btn {
+      width: 64px; height: 64px;
+      font-size: 1.6rem;
+    }
+    .speak-result {
+      text-align: center; font-size: 1rem;
+      color: var(--text-mid, #5A3820);
+      min-height: 2rem;
+    }
+    .speak-result.correct { color: #27AE60; }
+    .speak-result.wrong { color: #E74C3C; }
   `;
   document.head.appendChild(style);
   return style;
@@ -743,19 +932,26 @@ function buildVocabularyView() {
         <button class="learn-btn" data-id="${w.id}" title="Toggle learned">
           ${state.learned.includes(w.id) ? '\u2705' : '\u2B50'}
         </button>
+        ${speakBtnHTML(w.gurmukhi)}
         <div class="gurmukhi">${w.gurmukhi}</div>
         <div class="latin">${w.latin}</div>
         <span class="pos-badge">${w.pos}</span>
         <span class="cat-tag">${w.category}</span>
         <div class="meaning">${w.meaning}</div>
         <div class="example">
-          <div>${w.example.gurmukhi}</div>
+          <div>${w.example.gurmukhi} ${speakBtnHTML(w.example.gurmukhi, 'speak-ex')}</div>
           <div style="font-style:italic;margin-top:.2rem">${w.example.latin}</div>
         </div>
       `;
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.learn-btn')) return;
+        if (e.target.closest('.learn-btn') || e.target.closest('.voice-btn')) return;
         card.classList.toggle('expanded');
+      });
+      card.querySelectorAll('.speak-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          speak(btn.dataset.speak);
+        });
       });
       card.querySelector('.learn-btn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -800,6 +996,7 @@ function buildPracticeView() {
       <button class="mode-btn active" data-mode="flashcard">Flash Cards</button>
       <button class="mode-btn" data-mode="mcq">Multiple Choice</button>
       <button class="mode-btn" data-mode="typing">Typing</button>
+      ${CAN_LISTEN ? '<button class="mode-btn" data-mode="speak">Speak</button>' : ''}
     </div>
     <div class="filter-pills" id="practiceFilters"></div>
     <div class="practice-stats-bar" id="practiceStatsBar"></div>
@@ -887,6 +1084,7 @@ function renderPractice() {
 
   if (practiceMode === 'flashcard') renderFlashcard(area, word);
   else if (practiceMode === 'mcq') renderMCQ(area, word);
+  else if (practiceMode === 'speak') renderSpeak(area, word);
   else renderTyping(area, word);
 }
 
@@ -908,8 +1106,10 @@ function renderFlashcard(area, word) {
     <div class="flashcard" id="flashcard">
       <div class="front-text">${word.gurmukhi}</div>
       <div class="front-sub">${word.latin} &middot; ${word.pos}</div>
+      ${speakBtnHTML(word.gurmukhi)}
       <div class="back">
         <div class="back-meaning">${word.meaning}</div>
+        ${speakBtnHTML(word.example.gurmukhi)}
         <div class="back-example">
           ${word.example.gurmukhi}<br>
           <em>${word.example.latin}</em>
@@ -923,7 +1123,14 @@ function renderFlashcard(area, word) {
     </div>
   `;
   const card = area.querySelector('#flashcard');
-  card.addEventListener('click', () => card.classList.toggle('flipped'));
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.voice-btn')) return;
+    card.classList.toggle('flipped');
+  });
+  area.querySelectorAll('.speak-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); speak(btn.dataset.speak); });
+  });
+  if (settings.autoSpeak && CAN_SPEAK) speak(word.gurmukhi);
   area.querySelector('#fcKnew').addEventListener('click', () => { recordAnswer(true); practiceIndex++; renderPractice(); });
   area.querySelector('#fcDidnt').addEventListener('click', () => { recordAnswer(false); practiceIndex++; renderPractice(); });
   area.querySelector('#fcNext').addEventListener('click', () => { practiceIndex++; renderPractice(); });
@@ -938,11 +1145,15 @@ function renderMCQ(area, word) {
     <div class="mc-question">
       <div class="mc-word">${word.gurmukhi}</div>
       <div class="mc-hint">${word.latin} &middot; ${word.pos}</div>
+      ${speakBtnHTML(word.gurmukhi)}
     </div>
     <div class="mc-options" id="mcOptions">
       ${options.map(o => `<button class="mc-opt" data-id="${o.id}">${o.meaning}</button>`).join('')}
     </div>
   `;
+  const mcSpeak = area.querySelector('.speak-btn');
+  if (mcSpeak) mcSpeak.addEventListener('click', () => speak(word.gurmukhi));
+  if (settings.autoSpeak && CAN_SPEAK) speak(word.gurmukhi);
   let answered = false;
   area.querySelectorAll('.mc-opt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -964,9 +1175,11 @@ function renderTyping(area, word) {
     <div class="type-prompt">
       <div class="type-meaning">${word.meaning}</div>
       <div class="type-cat">${word.category} &middot; ${word.pos}</div>
+      ${speakBtnHTML(word.gurmukhi)}
     </div>
     <div class="type-input-wrap">
       <input type="text" id="typeInput" placeholder="Type the romanized word..." autocomplete="off" />
+      <div class="voice-row">${micBtnHTML('typeMic')}</div>
       <div class="type-feedback" id="typeFeedback"></div>
     </div>
     <div class="flashcard-nav" style="margin-top:1rem">
@@ -977,6 +1190,26 @@ function renderTyping(area, word) {
   const input = area.querySelector('#typeInput');
   const feedback = area.querySelector('#typeFeedback');
   input.focus();
+
+  const typeSpeak = area.querySelector('.speak-btn');
+  if (typeSpeak) typeSpeak.addEventListener('click', () => speak(word.gurmukhi));
+
+  const typeMic = area.querySelector('#typeMic');
+  if (typeMic) {
+    typeMic.addEventListener('click', () => {
+      if (typeMic.classList.contains('listening')) { stopListening(); typeMic.classList.remove('listening'); return; }
+      typeMic.classList.add('listening');
+      startListening(
+        (alts) => {
+          typeMic.classList.remove('listening');
+          const match = alts.some(a => normalizeGurmukhi(a) === normalizeGurmukhi(word.gurmukhi));
+          if (match) { input.value = word.latin; check(); }
+          else { feedback.innerHTML = 'Heard: <em>' + alts[0] + '</em> — try again or type it.'; }
+        },
+        (err) => { typeMic.classList.remove('listening'); feedback.textContent = err; }
+      );
+    });
+  }
 
   function check() {
     const val = input.value.trim().toLowerCase();
@@ -999,6 +1232,67 @@ function renderTyping(area, word) {
     practiceIndex++;
     renderPractice();
   });
+}
+
+function renderSpeak(area, word) {
+  area.innerHTML = `
+    <div class="speak-prompt">
+      <div class="speak-target">${word.gurmukhi}</div>
+      <div class="speak-sub">${word.latin} &middot; ${word.meaning}</div>
+    </div>
+    <div class="speak-actions">
+      ${speakBtnHTML(word.gurmukhi, 'speak-demo')}
+      ${micBtnHTML('speakMic')}
+    </div>
+    <div class="speak-result" id="speakResult">Tap the speaker to hear, then tap the mic to pronounce it.</div>
+    <div class="flashcard-nav" style="margin-top:1rem">
+      <button class="fc-btn" id="speakSkip">Skip</button>
+      <button class="fc-btn primary" id="speakNext" style="display:none">Next</button>
+    </div>
+  `;
+  const demo = area.querySelector('.speak-demo');
+  if (demo) demo.addEventListener('click', () => speak(word.gurmukhi));
+  if (settings.autoSpeak && CAN_SPEAK) speak(word.gurmukhi);
+
+  const micBtn = area.querySelector('#speakMic');
+  const result = area.querySelector('#speakResult');
+  const nextBtn = area.querySelector('#speakNext');
+  let answered = false;
+
+  if (micBtn) {
+    micBtn.addEventListener('click', () => {
+      if (answered) return;
+      if (micBtn.classList.contains('listening')) { stopListening(); micBtn.classList.remove('listening'); return; }
+      micBtn.classList.add('listening');
+      result.textContent = 'Listening...';
+      result.className = 'speak-result';
+      startListening(
+        (alts) => {
+          micBtn.classList.remove('listening');
+          answered = true;
+          const match = alts.some(a => normalizeGurmukhi(a) === normalizeGurmukhi(word.gurmukhi));
+          if (match) {
+            result.textContent = 'Correct! Great pronunciation!';
+            result.className = 'speak-result correct';
+            recordAnswer(true);
+          } else {
+            result.innerHTML = 'Heard: "' + alts[0] + '"<br>Expected: ' + word.gurmukhi + ' (' + word.latin + ')';
+            result.className = 'speak-result wrong';
+            recordAnswer(false);
+          }
+          nextBtn.style.display = '';
+        },
+        (err) => {
+          micBtn.classList.remove('listening');
+          result.textContent = err;
+          result.className = 'speak-result wrong';
+        }
+      );
+    });
+  }
+
+  area.querySelector('#speakSkip').addEventListener('click', () => { recordAnswer(false); practiceIndex++; renderPractice(); });
+  nextBtn.addEventListener('click', () => { practiceIndex++; renderPractice(); });
 }
 
 // ══════════════════════════════════════════════════
@@ -1090,6 +1384,7 @@ function buildChatView() {
     </div>
     <div class="chat-input-row">
       <input type="text" id="chatInput" placeholder="Type your reply..." disabled />
+      ${micBtnHTML('chatMic')}
       <button id="chatSend" disabled>Send</button>
     </div>
   `;
@@ -1111,6 +1406,19 @@ function buildChatView() {
   const sendBtn = view.querySelector('#chatSend');
   sendBtn.addEventListener('click', () => sendChat());
   input.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+  const chatMic = view.querySelector('#chatMic');
+  if (chatMic) {
+    chatMic.addEventListener('click', () => {
+      if (!chatScenario) return;
+      if (chatMic.classList.contains('listening')) { stopListening(); chatMic.classList.remove('listening'); return; }
+      chatMic.classList.add('listening');
+      startListening(
+        (alts) => { chatMic.classList.remove('listening'); input.value = alts[0]; },
+        () => { chatMic.classList.remove('listening'); }
+      );
+    });
+  }
 }
 
 function startScenario(scenario) {
@@ -1122,6 +1430,8 @@ function startScenario(scenario) {
   win.innerHTML = '';
   input.disabled = false;
   sendBtn.disabled = false;
+  const chatMic = document.getElementById('chatMic');
+  if (chatMic) chatMic.disabled = false;
 
   addBotMessage(scenario.prompts[0].bot, scenario.prompts[0].hints);
 }
@@ -1132,10 +1442,14 @@ function addBotMessage(msg, hints) {
   div.innerHTML = `
     <div>${msg.gurmukhi}</div>
     <div style="font-style:italic;font-size:.82rem;margin-top:.2rem;color:var(--text-light)">${msg.latin}</div>
+    ${speakBtnHTML(msg.gurmukhi)}
     <button class="show-trans">Show translation</button>
     <div class="translation">${msg.english}</div>
     ${hints ? `<div class="translation" style="display:none;margin-top:.2rem"><strong>Hint:</strong> ${hints[0]} (${hints[1]}) — ${hints[2]}</div>` : ''}
   `;
+  const msgSpeak = div.querySelector('.speak-btn');
+  if (msgSpeak) msgSpeak.addEventListener('click', (e) => { e.stopPropagation(); speak(msg.gurmukhi); });
+  if (settings.autoSpeak && CAN_SPEAK) speak(msg.gurmukhi);
   const transBtn = div.querySelector('.show-trans');
   transBtn.addEventListener('click', () => {
     div.querySelectorAll('.translation').forEach(t => t.classList.toggle('visible'));
@@ -1171,6 +1485,7 @@ function sendChat() {
       win.scrollTop = win.scrollHeight;
       document.getElementById('chatInput').disabled = true;
       document.getElementById('chatSend').disabled = true;
+      const cm = document.getElementById('chatMic'); if (cm) cm.disabled = true;
     }, 500);
   }
   win.scrollTop = win.scrollHeight;
@@ -1199,6 +1514,27 @@ function buildSettingsHTML() {
         <div class="setting-label">Font Size<small>${settings.fontSize}px</small></div>
         <input type="range" class="font-slider" id="fontSlider" min="12" max="22" value="${settings.fontSize}" />
       </div>
+      <div class="setting-section-label">Voice &amp; Speech</div>
+      ${CAN_SPEAK ? `
+      <div class="setting-row">
+        <div class="setting-label">Voice Output<small>Pronounce words with text-to-speech</small></div>
+        <button class="toggle ${settings.voiceOutput ? 'on' : ''}" id="toggleVoiceOutput"></button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">Auto-Speak<small>Auto-pronounce new words</small></div>
+        <button class="toggle ${settings.autoSpeak ? 'on' : ''}" id="toggleAutoSpeak"></button>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">Speech Rate<small>${settings.speechRate.toFixed(1)}x</small></div>
+        <input type="range" class="font-slider" id="speechRateSlider" min="0.5" max="1.5" step="0.1" value="${settings.speechRate}" />
+      </div>
+      ` : '<div class="voice-support-notice">Text-to-speech is not available in this browser.</div>'}
+      ${CAN_LISTEN ? `
+      <div class="setting-row">
+        <div class="setting-label">Voice Input<small>Use microphone for speaking practice</small></div>
+        <button class="toggle ${settings.voiceInput ? 'on' : ''}" id="toggleVoiceInput"></button>
+      </div>
+      ` : '<div class="voice-support-notice">Speech recognition not available. Try Chrome for best results.</div>'}
       <button class="reset-btn" id="resetProgress">Reset All Progress</button>
       <button class="modal-close" id="closeSettings">Close</button>
     </div>
@@ -1239,6 +1575,33 @@ function wireSettings() {
     saveSettings();
   });
 
+  // Voice settings
+  const tvo = document.getElementById('toggleVoiceOutput');
+  if (tvo) tvo.addEventListener('click', function() {
+    settings.voiceOutput = !settings.voiceOutput;
+    this.classList.toggle('on', settings.voiceOutput);
+    if (!settings.voiceOutput && CAN_SPEAK) speechSynthesis.cancel();
+    saveSettings();
+  });
+  const tas = document.getElementById('toggleAutoSpeak');
+  if (tas) tas.addEventListener('click', function() {
+    settings.autoSpeak = !settings.autoSpeak;
+    this.classList.toggle('on', settings.autoSpeak);
+    saveSettings();
+  });
+  const srs = document.getElementById('speechRateSlider');
+  if (srs) srs.addEventListener('input', function() {
+    settings.speechRate = parseFloat(this.value);
+    this.closest('.setting-row').querySelector('small').textContent = settings.speechRate.toFixed(1) + 'x';
+    saveSettings();
+  });
+  const tvi = document.getElementById('toggleVoiceInput');
+  if (tvi) tvi.addEventListener('click', function() {
+    settings.voiceInput = !settings.voiceInput;
+    this.classList.toggle('on', settings.voiceInput);
+    saveSettings();
+  });
+
   // Reset
   document.getElementById('resetProgress').addEventListener('click', () => {
     if (confirm('Reset all progress? This cannot be undone.')) {
@@ -1256,5 +1619,9 @@ function wireSettings() {
 // ── Init ──
 const styleEl = injectStyles();
 buildShell();
+
+if (CAN_SPEAK && speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+}
 
 })();
