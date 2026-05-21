@@ -42,23 +42,130 @@ const CAN_LISTEN = !!(window.SpeechRecognition || window.webkitSpeechRecognition
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let currentAudio = null;
+let cachedVoices = [];
+let bestPunjabiVoice = null;
+let ttsReady = false;
+let ttsMethod = null;
+
+function initVoiceEngine() {
+  if (!('speechSynthesis' in window)) return;
+  function loadVoices() {
+    cachedVoices = speechSynthesis.getVoices();
+    if (cachedVoices.length === 0) return;
+    bestPunjabiVoice =
+      cachedVoices.find(v => v.lang.startsWith('pa') && /google/i.test(v.name)) ||
+      cachedVoices.find(v => v.lang.startsWith('pa')) ||
+      cachedVoices.find(v => v.lang.startsWith('hi') && /google/i.test(v.name)) ||
+      cachedVoices.find(v => v.lang.startsWith('hi')) ||
+      null;
+    ttsReady = bestPunjabiVoice !== null;
+  }
+  loadVoices();
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+  }
+  setTimeout(loadVoices, 500);
+  setTimeout(loadVoices, 2000);
+}
+
+function stopSpeaking() {
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+}
 
 function speak(text, onEnd) {
-  if (!settings.voiceOutput || !text) return;
-  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (!settings.voiceOutput || !text) { if (onEnd) onEnd(); return; }
+  stopSpeaking();
+
+  if (ttsMethod === 'native') { speakNative(text, onEnd); return; }
+  if (ttsMethod === 'none') { if (onEnd) onEnd(); return; }
+
+  speakViaProxy(text, onEnd);
+}
+
+function speakViaProxy(text, onEnd) {
   const chunks = splitTextForTTS(text);
   let idx = 0;
+  let proxyFailed = false;
+
   function playNext() {
-    if (idx >= chunks.length) { if (onEnd) onEnd(); return; }
-    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=pa&client=tw-ob&q=' + encodeURIComponent(chunks[idx]);
-    const audio = new Audio(url);
+    if (idx >= chunks.length || proxyFailed) {
+      if (proxyFailed) { speakNative(text, onEnd); return; }
+      if (onEnd) onEnd();
+      return;
+    }
+    const url = '/api/tts?ie=UTF-8&tl=pa&client=gtx&q=' + encodeURIComponent(chunks[idx]);
+    const audio = new Audio();
     currentAudio = audio;
-    audio.playbackRate = settings.speechRate;
+
+    const timeout = setTimeout(() => {
+      audio.pause();
+      proxyFailed = true;
+      playNext();
+    }, 4000);
+
+    audio.oncanplaythrough = () => {
+      clearTimeout(timeout);
+      ttsMethod = 'proxy';
+      audio.playbackRate = settings.speechRate;
+      audio.play().catch(() => { proxyFailed = true; playNext(); });
+    };
     audio.onended = () => { idx++; playNext(); };
-    audio.onerror = () => { idx++; playNext(); };
-    audio.play().catch(() => { idx++; playNext(); });
+    audio.onerror = () => { clearTimeout(timeout); proxyFailed = true; playNext(); };
+    audio.src = url;
+    audio.load();
   }
   playNext();
+}
+
+function speakNative(text, onEnd) {
+  if (!('speechSynthesis' in window) || !ttsReady || !bestPunjabiVoice) {
+    ttsMethod = 'none';
+    showTTSToast();
+    if (onEnd) onEnd();
+    return;
+  }
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.voice = bestPunjabiVoice;
+  utter.lang = bestPunjabiVoice.lang;
+  utter.rate = settings.speechRate;
+
+  let finished = false;
+  function done() { if (finished) return; finished = true; if (onEnd) onEnd(); }
+
+  utter.onend = done;
+  utter.onerror = () => { ttsMethod = 'none'; showTTSToast(); done(); };
+
+  ttsMethod = 'native';
+  speechSynthesis.speak(utter);
+
+  if (/Chrome/i.test(navigator.userAgent)) {
+    const ri = setInterval(() => {
+      if (!speechSynthesis.speaking) { clearInterval(ri); return; }
+      speechSynthesis.pause();
+      speechSynthesis.resume();
+    }, 10000);
+    const origEnd = utter.onend;
+    const origErr = utter.onerror;
+    utter.onend = () => { clearInterval(ri); origEnd(); };
+    utter.onerror = () => { clearInterval(ri); origErr(); };
+  }
+}
+
+function showTTSToast() {
+  if (window._ttsToastShown) return;
+  window._ttsToastShown = true;
+  const toast = document.createElement('div');
+  toast.style.cssText =
+    'position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);' +
+    'background:var(--red-dark,#5C0F0F);color:var(--ivory,#FDF6EC);' +
+    'padding:.7rem 1.2rem;border-radius:8px;font-size:.85rem;z-index:200;' +
+    'box-shadow:0 4px 20px rgba(0,0,0,.3);max-width:90%;text-align:center;';
+  toast.textContent = 'Punjabi voice unavailable on this device. Try Chrome for best results.';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .5s'; }, 4000);
+  setTimeout(() => toast.remove(), 4500);
 }
 
 function splitTextForTTS(text) {
@@ -1526,7 +1633,7 @@ function buildSettingsHTML() {
       </div>
       <div class="setting-section-label">Voice &amp; Speech</div>
       <div class="setting-row">
-        <div class="setting-label">Voice Output<small>Punjabi pronunciation via Google TTS</small></div>
+        <div class="setting-label">Voice Output<small>Punjabi text-to-speech</small></div>
         <button class="toggle ${settings.voiceOutput ? 'on' : ''}" id="toggleVoiceOutput"></button>
       </div>
       <div class="setting-row">
@@ -1588,7 +1695,7 @@ function wireSettings() {
   if (tvo) tvo.addEventListener('click', function() {
     settings.voiceOutput = !settings.voiceOutput;
     this.classList.toggle('on', settings.voiceOutput);
-    if (!settings.voiceOutput && currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if (!settings.voiceOutput) stopSpeaking();
     saveSettings();
   });
   const tas = document.getElementById('toggleAutoSpeak');
@@ -1626,6 +1733,7 @@ function wireSettings() {
 
 // ── Init ──
 const styleEl = injectStyles();
+initVoiceEngine();
 buildShell();
 
 })();
