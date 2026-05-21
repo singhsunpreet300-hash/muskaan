@@ -37,32 +37,42 @@ function saveState() { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
 function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
 
 // ── Voice Engine ──
-const CAN_SPEAK = 'speechSynthesis' in window;
+const CAN_SPEAK = true;
 const CAN_LISTEN = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function findVoiceLang() {
-  if (!CAN_SPEAK) return 'pa-IN';
-  const voices = speechSynthesis.getVoices();
-  if (voices.some(v => v.lang.startsWith('pa'))) return 'pa-IN';
-  if (voices.some(v => v.lang.startsWith('hi'))) return 'hi-IN';
-  return 'pa-IN';
-}
+let currentAudio = null;
 
 function speak(text, onEnd) {
-  if (!CAN_SPEAK || !settings.voiceOutput || !text) return;
-  speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = settings.speechRate;
-  utter.lang = findVoiceLang();
-  const voices = speechSynthesis.getVoices();
-  const paVoice = voices.find(v => v.lang.startsWith('pa'));
-  const hiVoice = voices.find(v => v.lang.startsWith('hi'));
-  if (paVoice) utter.voice = paVoice;
-  else if (hiVoice) { utter.voice = hiVoice; utter.lang = 'hi-IN'; }
-  if (onEnd) utter.onend = onEnd;
-  utter.onerror = () => {};
-  speechSynthesis.speak(utter);
+  if (!settings.voiceOutput || !text) return;
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  const chunks = splitTextForTTS(text);
+  let idx = 0;
+  function playNext() {
+    if (idx >= chunks.length) { if (onEnd) onEnd(); return; }
+    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=pa&client=tw-ob&q=' + encodeURIComponent(chunks[idx]);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.playbackRate = settings.speechRate;
+    audio.onended = () => { idx++; playNext(); };
+    audio.onerror = () => { idx++; playNext(); };
+    audio.play().catch(() => { idx++; playNext(); });
+  }
+  playNext();
+}
+
+function splitTextForTTS(text) {
+  if (text.length <= 200) return [text];
+  const parts = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= 200) { parts.push(remaining); break; }
+    let cut = remaining.lastIndexOf(' ', 200);
+    if (cut <= 0) cut = 200;
+    parts.push(remaining.substring(0, cut));
+    remaining = remaining.substring(cut).trim();
+  }
+  return parts;
 }
 
 let activeRecognition = null;
@@ -1515,9 +1525,8 @@ function buildSettingsHTML() {
         <input type="range" class="font-slider" id="fontSlider" min="12" max="22" value="${settings.fontSize}" />
       </div>
       <div class="setting-section-label">Voice &amp; Speech</div>
-      ${CAN_SPEAK ? `
       <div class="setting-row">
-        <div class="setting-label">Voice Output<small>Pronounce words with text-to-speech</small></div>
+        <div class="setting-label">Voice Output<small>Punjabi pronunciation via Google TTS</small></div>
         <button class="toggle ${settings.voiceOutput ? 'on' : ''}" id="toggleVoiceOutput"></button>
       </div>
       <div class="setting-row">
@@ -1528,7 +1537,6 @@ function buildSettingsHTML() {
         <div class="setting-label">Speech Rate<small>${settings.speechRate.toFixed(1)}x</small></div>
         <input type="range" class="font-slider" id="speechRateSlider" min="0.5" max="1.5" step="0.1" value="${settings.speechRate}" />
       </div>
-      ` : '<div class="voice-support-notice">Text-to-speech is not available in this browser.</div>'}
       ${CAN_LISTEN ? `
       <div class="setting-row">
         <div class="setting-label">Voice Input<small>Use microphone for speaking practice</small></div>
@@ -1580,7 +1588,7 @@ function wireSettings() {
   if (tvo) tvo.addEventListener('click', function() {
     settings.voiceOutput = !settings.voiceOutput;
     this.classList.toggle('on', settings.voiceOutput);
-    if (!settings.voiceOutput && CAN_SPEAK) speechSynthesis.cancel();
+    if (!settings.voiceOutput && currentAudio) { currentAudio.pause(); currentAudio = null; }
     saveSettings();
   });
   const tas = document.getElementById('toggleAutoSpeak');
@@ -1619,9 +1627,5 @@ function wireSettings() {
 // ── Init ──
 const styleEl = injectStyles();
 buildShell();
-
-if (CAN_SPEAK && speechSynthesis.onvoiceschanged !== undefined) {
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-}
 
 })();
