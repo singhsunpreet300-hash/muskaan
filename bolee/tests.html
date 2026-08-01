@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bolee — tests</title>
+<style>
+  body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+         background: #14100C; color: #E8DFD2; margin: 0; padding: 24px; line-height: 1.5; }
+  h1 { font-size: 1.2rem; margin: 0 0 4px; }
+  #summary { padding: 14px 18px; border-radius: 10px; margin: 16px 0; font-weight: 700; }
+  .ok   { background: #14432A; color: #9EE6B4; }
+  .fail { background: #4A1512; color: #F5A9A0; }
+  .group { margin: 18px 0 6px; color: #E0B84B; font-weight: 700; border-bottom: 1px solid #33291F; padding-bottom: 4px; }
+  .case { padding: 3px 0 3px 20px; position: relative; font-size: .88rem; }
+  .case::before { position: absolute; left: 0; }
+  .pass::before { content: '✓'; color: #6BCB77; }
+  .fail-case { color: #F5A9A0; }
+  .fail-case::before { content: '✗'; color: #F5A9A0; }
+  .detail { color: #9A8B7A; font-size: .8rem; padding-left: 20px; white-space: pre-wrap; }
+  a { color: #E0B84B; }
+</style>
+</head>
+<body>
+
+<h1>ਬੋਲੀ — test runner</h1>
+<p><a href="index.html">← back to the app</a></p>
+<div id="summary">running…</div>
+<div id="results"></div>
+
+<script src="js/vocabulary.js"></script>
+<script src="js/store.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/practice.js"></script>
+<script src="js/contribute.js"></script>
+<script src="js/verify.js"></script>
+<script src="js/ai-tutor.js"></script>
+
+<script>
+/* Dependency-free runner. Tests target pure logic only —
+   no network, no DOM rendering, no speech APIs. */
+
+var passed = 0, failed = 0;
+var out = document.getElementById('results');
+
+function group(name) {
+  var el = document.createElement('div');
+  el.className = 'group';
+  el.textContent = name;
+  out.appendChild(el);
+}
+
+function check(name, condition, detail) {
+  var el = document.createElement('div');
+  if (condition) {
+    passed++;
+    el.className = 'case pass';
+    el.textContent = name;
+  } else {
+    failed++;
+    el.className = 'case fail-case';
+    el.textContent = name;
+  }
+  out.appendChild(el);
+  if (!condition && detail) {
+    var d = document.createElement('div');
+    d.className = 'detail';
+    d.textContent = detail;
+    out.appendChild(d);
+  }
+}
+
+function eq(name, actual, expected) {
+  var same = JSON.stringify(actual) === JSON.stringify(expected);
+  check(name, same, same ? '' : 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual));
+}
+
+/* ══════════════ data integrity ══════════════ */
+group('Vocabulary data');
+
+var V = window.VOCAB;
+var CATS = window.VOCAB_CATEGORIES.map(function (c) { return c.id; });
+var DIALECTS = window.VOCAB_DIALECTS.map(function (d) { return d.id; });
+
+check('at least 200 seed words (' + V.length + ')', V.length >= 200);
+check('all eight categories present', CATS.length === 8);
+
+var counts = {};
+V.forEach(function (w) { counts[w.category] = (counts[w.category] || 0) + 1; });
+CATS.forEach(function (c) {
+  check('category "' + c + '" has ≥25 words (' + (counts[c] || 0) + ')', (counts[c] || 0) >= 25);
+});
+
+var ids = {}, dupeId = null;
+V.forEach(function (w) { if (ids[w.id]) dupeId = w.id; ids[w.id] = true; });
+check('word ids are unique', !dupeId, 'duplicate: ' + dupeId);
+
+var schemaBad = V.filter(function (w) {
+  return !w.id || !w.gurmukhi || !w.latin || !w.pos || !w.meaning || !w.category ||
+         !w.example || !w.example.gurmukhi || !w.example.latin ||
+         !w.emoji || !w.tier || !w.dialect || w.status !== 'verified' || w.source !== 'seed';
+});
+check('every word matches the schema', schemaBad.length === 0,
+      schemaBad.length ? 'first bad: ' + JSON.stringify(schemaBad[0]) : '');
+
+var badCat = V.filter(function (w) { return CATS.indexOf(w.category) === -1; });
+check('every category value is known', badCat.length === 0);
+
+var badTier = V.filter(function (w) { return [1, 2, 3].indexOf(w.tier) === -1; });
+check('every tier is 1, 2 or 3', badTier.length === 0);
+
+var badDialect = V.filter(function (w) { return DIALECTS.indexOf(w.dialect) === -1; });
+check('every dialect value is known', badDialect.length === 0,
+      badDialect.length ? 'first bad: ' + badDialect[0].gurmukhi + ' → ' + badDialect[0].dialect : '');
+
+var GURMUKHI = /[਀-੿]/;
+var nonGurmukhi = V.filter(function (w) { return !GURMUKHI.test(w.gurmukhi); });
+check('every word is written in Gurmukhi', nonGurmukhi.length === 0);
+
+var kidsPool = V.filter(function (w) { return w.tier <= 2; });
+check('kids mode has a usable pool (' + kidsPool.length + ' words)', kidsPool.length >= 100);
+
+/* ══════════════ SRS ══════════════ */
+group('Spaced repetition (Practice.grade)');
+
+var P = window.Practice;
+var T0 = 1700000000000;   // fixed clock — grade() takes `now` for exactly this reason
+var DAY = 86400000;
+
+var c1 = P.grade(null, true, T0);
+eq('first correct → interval 1 day', c1.interval, 1);
+eq('first correct → reps 1', c1.reps, 1);
+check('first correct → due tomorrow', new Date(c1.dueAt).getTime() === T0 + DAY);
+check('ease rises on correct', c1.ease > P.SRS.START_EASE);
+
+var c2 = P.grade(c1, true, T0);
+eq('second correct → interval 3 days', c2.interval, 3);
+
+var c3 = P.grade(c2, true, T0);
+check('third correct multiplies by ease (' + c3.interval + ')', c3.interval === Math.round(3 * c2.ease));
+
+var lapsed = P.grade(c3, false, T0);
+eq('wrong answer → interval back to 1', lapsed.interval, 1);
+eq('wrong answer → reps reset', lapsed.reps, 0);
+eq('wrong answer → lapse counted', lapsed.lapses, 1);
+check('ease drops on wrong', lapsed.ease < c3.ease);
+
+var floorCard = { reps: 0, lapses: 0, ease: 1.3, interval: 5, dueAt: null };
+for (var i = 0; i < 5; i++) floorCard = P.grade(floorCard, false, T0);
+check('ease never falls below the floor', floorCard.ease >= P.SRS.MIN_EASE);
+
+check('a never-seen card is due', P.isDue(null, T0));
+check('a future card is not due', !P.isDue({ dueAt: new Date(T0 + DAY).toISOString() }, T0));
+check('a past-due card is due', P.isDue({ dueAt: new Date(T0 - DAY).toISOString() }, T0));
+
+/* ══════════════ answer checking ══════════════ */
+group('Answer checking');
+
+var q = { answer: 'ਚੁੱਲ੍ਹਾ', acceptLatin: 'chulha' };
+check('exact Gurmukhi accepted', P.checkAnswer(q, 'ਚੁੱਲ੍ਹਾ').correct);
+check('whitespace tolerated', P.checkAnswer(q, '  ਚੁੱਲ੍ਹਾ  ').correct);
+check('exact romanisation accepted', P.checkAnswer(q, 'chulha').correct);
+check('romanisation case-insensitive', P.checkAnswer(q, 'Chulha').correct);
+check('one-letter romanisation slip accepted', P.checkAnswer(q, 'chullha').correct);
+check('an unrelated word is rejected', !P.checkAnswer(q, 'ਰੋਟੀ').correct);
+check('empty answer is rejected', !P.checkAnswer(q, '').correct);
+check('a far-off romanisation is rejected', !P.checkAnswer(q, 'tandoor').correct);
+
+/* ══════════════ blanking ══════════════ */
+group('Example blanking');
+
+eq('exact word is blanked',
+   P.blankOut('ਬੇਬੇ ਚੁੱਲ੍ਹਾ ਸਾਫ਼ ਕਰਦੀ ਹੈ।', 'ਚੁੱਲ੍ਹਾ'),
+   'ਬੇਬੇ ____ ਸਾਫ਼ ਕਰਦੀ ਹੈ।');
+check('an inflected form is still blanked',
+      P.blankOut('ਬੇਬੇ ਚੁੱਲ੍ਹੇ ਤੇ ਰੋਟੀ ਲਾਹ ਰਹੀ ਹੈ।', 'ਚੁੱਲ੍ਹਾ').indexOf('____') !== -1);
+
+/* ══════════════ transliteration ══════════════ */
+group('Transliteration (Contribute.transliterate)');
+
+var C = window.Contribute;
+check('produces Latin output for ਘਰ', /^gh?ar/.test(C.transliterate('ਘਰ')),
+      'got: ' + C.transliterate('ਘਰ'));
+check('handles vowel signs (ਰੋਟੀ)', C.transliterate('ਰੋਟੀ').indexOf('o') !== -1,
+      'got: ' + C.transliterate('ਰੋਟੀ'));
+check('handles bindi/tippi as n (ਚੰਨ)', C.transliterate('ਚੰਨ').indexOf('n') !== -1,
+      'got: ' + C.transliterate('ਚੰਨ'));
+check('returns empty for empty input', C.transliterate('') === '');
+check('output contains no Gurmukhi', !GURMUKHI.test(C.transliterate('ਚੁੱਲ੍ਹਾ')),
+      'got: ' + C.transliterate('ਚੁੱਲ੍ਹਾ'));
+
+/* ══════════════ dedupe normalisation ══════════════ */
+group('Duplicate normalisation');
+
+check('diacritics folded — ਚੁੱਲ੍ਹਾ ≡ ਚੁਲਹਾ',
+      C.normalise('ਚੁੱਲ੍ਹਾ') === C.normalise('ਚੁਲ੍ਹਾ'),
+      C.normalise('ਚੁੱਲ੍ਹਾ') + ' vs ' + C.normalise('ਚੁਲ੍ਹਾ'));
+check('genuinely different words stay different',
+      C.normalise('ਰੋਟੀ') !== C.normalise('ਚੁੱਲ੍ਹਾ'));
+check('whitespace ignored', C.normalise(' ਘਰ ') === C.normalise('ਘਰ'));
+
+/* ══════════════ validation ══════════════ */
+group('Submission validation');
+
+check('rejects an empty draft', !C.validate({}).valid);
+check('rejects Latin text in the Gurmukhi field',
+      !C.validate({ gurmukhi: 'chulha', meaning: 'stove' }).valid);
+check('rejects Devanagari in the Gurmukhi field',
+      !C.validate({ gurmukhi: 'चूल्हा', meaning: 'stove' }).valid);
+check('rejects a missing meaning', !C.validate({ gurmukhi: 'ਚੁੱਲ੍ਹਾ' }).valid);
+check('accepts a valid minimal draft',
+      C.validate({ gurmukhi: 'ਚੁੱਲ੍ਹਾ', meaning: 'mud stove' }).valid,
+      JSON.stringify(C.validate({ gurmukhi: 'ਚੁੱਲ੍ਹਾ', meaning: 'mud stove' }).errors));
+check('rejects an unknown category',
+      !C.validate({ gurmukhi: 'ਚੁੱਲ੍ਹਾ', meaning: 'stove', category: 'nonsense' }).valid);
+check('rejects an unknown part of speech',
+      !C.validate({ gurmukhi: 'ਚੁੱਲ੍ਹਾ', meaning: 'stove', pos: 'gerundive' }).valid);
+
+/* ══════════════ vote weighting ══════════════ */
+group('Vote weight (Verify.voteWeight)');
+
+var Vf = window.Verify;
+eq('a new contributor weighs 1', Vf.voteWeight(0), 1);
+eq('reputation 9 still weighs 1', Vf.voteWeight(9), 1);
+eq('reputation 10 weighs 2', Vf.voteWeight(10), 2);
+eq('reputation 20 weighs 3', Vf.voteWeight(20), 3);
+eq('weight is capped at 3', Vf.voteWeight(500), 3);
+eq('negative reputation floors at 1', Vf.voteWeight(-50), 1);
+
+/* ══════════════ tally transitions ══════════════ */
+group('Vote tally (Verify.tally)');
+
+function votes(spec) {
+  return spec.map(function (s, i) {
+    return { voterId: 'u' + i, value: s[0], weight: s[1] };
+  });
+}
+
+eq('no votes → pending', Vf.tally([]).status, 'pending');
+eq('one confirm → still pending', Vf.tally(votes([['confirm', 1]])).status, 'pending');
+eq('two confirms → still pending', Vf.tally(votes([['confirm', 1], ['confirm', 1]])).status, 'pending');
+eq('three confirms → verified',
+   Vf.tally(votes([['confirm', 1], ['confirm', 1], ['confirm', 1]])).status, 'verified');
+eq('one weight-3 confirm alone reaches quorum',
+   Vf.tally(votes([['confirm', 3]])).status, 'verified');
+eq('three doubts → disputed',
+   Vf.tally(votes([['doubt', 1], ['doubt', 1], ['doubt', 1]])).status, 'disputed');
+eq('doubts cancel confirms',
+   Vf.tally(votes([['confirm', 1], ['confirm', 1], ['confirm', 1], ['doubt', 1]])).status, 'pending');
+eq('disputed wins when both thresholds are met',
+   Vf.tally(votes([['confirm', 3], ['confirm', 3], ['doubt', 1], ['doubt', 1], ['doubt', 1]])).status,
+   'disputed');
+eq('needed counts down from the threshold', Vf.tally(votes([['confirm', 1]])).needed, 2);
+eq('needed is zero once verified',
+   Vf.tally(votes([['confirm', 3]])).needed, 0);
+eq('a vote with no weight counts as 1',
+   Vf.tally([{ value: 'confirm' }, { value: 'confirm' }, { value: 'confirm' }]).status, 'verified');
+
+/* ══════════════ store round-trip ══════════════ */
+group('Store (async round-trip)');
+
+var Store = window.Store;
+
+Store.init()
+  .then(function () {
+    check('init resolves and marks ready', Store.isReady());
+    return Store.getProfile();
+  })
+  .then(function (profile) {
+    check('a profile exists after init', !!profile && !!profile.id);
+    return Store.getSettings();
+  })
+  .then(function (settings) {
+    check('settings default to adult mode', settings.mode === 'adult');
+    check('settings include a voice rate', typeof settings.voiceRate === 'number');
+    return Store.getWords({ status: 'verified' });
+  })
+  .then(function (words) {
+    check('getWords returns the seed pool (' + words.length + ')', words.length >= 200);
+    return Store.getWords({ category: 'farm' });
+  })
+  .then(function (farm) {
+    check('category filter works', farm.length > 0 && farm.every(function (w) { return w.category === 'farm'; }));
+    return Store.getWords({ maxTier: 2 });
+  })
+  .then(function (easy) {
+    check('maxTier filter excludes tier 3', easy.every(function (w) { return w.tier <= 2; }));
+    return Store.getWords({ status: 'pending' });
+  })
+  .then(function (pending) {
+    check('no seed word is pending', pending.length === 0);
+  })
+  .then(function () {
+    var el = document.getElementById('summary');
+    el.className = failed === 0 ? 'ok' : 'fail';
+    el.textContent = failed === 0
+      ? '✓ all ' + passed + ' checks passed'
+      : '✗ ' + failed + ' failed, ' + passed + ' passed';
+  })
+  .catch(function (err) {
+    var el = document.getElementById('summary');
+    el.className = 'fail';
+    el.textContent = '✗ runner crashed: ' + err.message;
+    console.error(err);
+  });
+</script>
+</body>
+</html>
