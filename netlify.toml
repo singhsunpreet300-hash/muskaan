@@ -27,16 +27,18 @@
 # filename, so a year-long immutable cache would pin every returning visitor
 # to whatever version they first loaded.
 [[headers]]
-  for = "/bolee/js/*"
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Explanation files are lazily fetched per category and change with the
+# dictionary, so they follow the same rule.
+[[headers]]
+  for = "/data/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/index.html"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-
-[[headers]]
-  for = "/bolee/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
