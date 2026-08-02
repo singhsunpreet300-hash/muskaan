@@ -71,10 +71,12 @@ export default async function handler(request) {
 
   // `status` is a GET so the client can cheaply ask what's available.
   if (task === 'status') {
+    const bhashini = !!(process.env.BHASHINI_USER_ID && process.env.BHASHINI_API_KEY);
     return new Response(JSON.stringify({
       chat: !!process.env.ANTHROPIC_API_KEY,
       translate: !!process.env.ANTHROPIC_API_KEY,
-      tts: !!(process.env.BHASHINI_USER_ID && process.env.BHASHINI_API_KEY)
+      tts: bhashini,
+      nmt: bhashini            // IndicTrans2 translation, preferred over the LLM
     }), { status: 200, headers: { 'content-type': 'application/json', ...cors(origin) } });
   }
 
@@ -97,8 +99,9 @@ export default async function handler(request) {
   }
 
   try {
-    if (task === 'tts')       return await handleTts(payload, origin);
-    if (task === 'translate') return await handleTranslate(payload, origin);
+    if (task === 'tts')           return await handleTts(payload, origin);
+    if (task === 'translate-nmt') return await handleNmt(payload, origin);
+    if (task === 'translate')     return await handleTranslate(payload, origin);
     return await handleChat(payload, origin);
   } catch (err) {
     // Never leak a stack or a key into the response.
@@ -250,18 +253,26 @@ async function handleTranslate(payload, origin) {
    call Dhruva inference. The config is cached per warm container since it
    changes rarely and the call is slow.                                  */
 
-let cachedPipeline = null;
-let cachedAt = 0;
+const pipelineCache = new Map();          // cacheKey -> {value, at}
 const PIPELINE_TTL_MS = 30 * 60 * 1000;
 
-async function getPipeline(userId, apiKey) {
-  if (cachedPipeline && Date.now() - cachedAt < PIPELINE_TTL_MS) return cachedPipeline;
+/**
+ * Resolve a Bhashini pipeline: the inference URL, its short-lived auth header
+ * and the service id for the model. Cached per task since the config call is
+ * slow and the answer changes rarely.
+ *
+ * @param {object} taskConfig e.g. {taskType:'tts', config:{language:{sourceLanguage:'pa'}}}
+ */
+async function getPipeline(userId, apiKey, taskConfig) {
+  const cacheKey = JSON.stringify(taskConfig);
+  const hit = pipelineCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < PIPELINE_TTL_MS) return hit.value;
 
   const res = await fetch(BHASHINI_CONFIG_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/json', userID: userId, ulcaApiKey: apiKey },
     body: JSON.stringify({
-      pipelineTasks: [{ taskType: 'tts', config: { language: { sourceLanguage: 'pa' } } }],
+      pipelineTasks: [taskConfig],
       pipelineRequestConfig: { pipelineId: BHASHINI_PIPELINE_ID }
     })
   });
@@ -273,19 +284,73 @@ async function getPipeline(userId, apiKey) {
   const service = (task.config || [])[0] || {};
   const endpoint = data.pipelineInferenceAPIEndPoint || {};
 
-  cachedPipeline = {
+  const value = {
     url: endpoint.callbackUrl,
     headerName: (endpoint.inferenceApiKey || {}).name,
     headerValue: (endpoint.inferenceApiKey || {}).value,
     serviceId: service.serviceId
   };
-  cachedAt = Date.now();
 
-  if (!cachedPipeline.url || !cachedPipeline.serviceId) {
-    cachedPipeline = null;
+  if (!value.url || !value.serviceId || !value.headerName) {
     throw new Error('bhashini config incomplete');
   }
-  return cachedPipeline;
+
+  pipelineCache.set(cacheKey, { value, at: Date.now() });
+  return value;
+}
+
+/* ── translate-nmt: IndicTrans2 via Bhashini ────────
+   Preferred over the LLM for plain translation: it is purpose-built for
+   Indic languages and outputs Gurmukhi natively.                        */
+
+async function handleNmt(payload, origin) {
+  const userId = process.env.BHASHINI_USER_ID;
+  const apiKey = process.env.BHASHINI_API_KEY;
+
+  if (!userId || !apiKey) {
+    // Not an error — the client falls through to the next rung.
+    return json(503, { error: 'Punjabi translation is not configured.', code: 'not-configured' }, origin);
+  }
+
+  const text = String(payload.text || '').trim().slice(0, 1000);
+  if (!text) return json(400, { error: 'Nothing to translate' }, origin);
+
+  const toPunjabi = payload.direction !== 'pa-en';
+  const source = toPunjabi ? 'en' : 'pa';
+  const target = toPunjabi ? 'pa' : 'en';
+
+  const pipeline = await getPipeline(userId, apiKey, {
+    taskType: 'translation',
+    config: { language: { sourceLanguage: source, targetLanguage: target } }
+  });
+
+  const res = await fetch(pipeline.url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      [pipeline.headerName]: pipeline.headerValue
+    },
+    body: JSON.stringify({
+      pipelineTasks: [{
+        taskType: 'translation',
+        config: {
+          language: { sourceLanguage: source, targetLanguage: target },
+          serviceId: pipeline.serviceId
+        }
+      }],
+      inputData: { input: [{ source: text }] }
+    })
+  });
+
+  if (!res.ok) throw new Error('bhashini nmt ' + res.status);
+
+  const data = await res.json();
+  const output = ((data.pipelineResponse || [])[0] || {}).output || [];
+  const translated = (output[0] || {}).target;
+
+  if (!translated) return json(502, { error: 'No translation returned.', code: 'no-output' }, origin);
+
+  return json(200, { translated, source, target }, origin);
 }
 
 async function handleTts(payload, origin) {
@@ -300,7 +365,10 @@ async function handleTts(payload, origin) {
   const text = String(payload.text || '').trim().slice(0, 500);
   if (!text) return json(400, { error: 'Nothing to speak' }, origin);
 
-  const pipeline = await getPipeline(userId, apiKey);
+  const pipeline = await getPipeline(userId, apiKey, {
+    taskType: 'tts',
+    config: { language: { sourceLanguage: 'pa' } }
+  });
 
   const res = await fetch(pipeline.url, {
     method: 'POST',

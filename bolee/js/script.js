@@ -23,7 +23,8 @@
     streaming: false,
     revisingId: null,
     translateDir: 'en-pa',
-    lastTranslation: null
+    lastTranslation: null,
+    phraseGroup: 'all'
   };
 
   var $  = function (sel, root) { return (root || document).querySelector(sel); };
@@ -266,12 +267,16 @@
         '<div class="wm-actions">' +
           '<button class="btn btn-primary" data-speak="' + esc(w.gurmukhi) + '" data-speak-word="' + esc(w.id) + '">🔊 Hear it</button>' +
           (w.hasAudio ? '<button class="btn btn-ghost" data-play-clip="' + esc(w.id) + '">🎙 Speaker recording</button>' : '') +
-          (isKids() ? '' : '<button class="btn btn-ghost" data-explain="' + esc(w.id) + '">✨ Ask the tutor</button>') +
         '</div>' +
         example +
+        '<div id="wm-explain"></div>' +
         (w.notes ? '<p class="wm-notes">' + esc(w.notes) + '</p>' : '') +
         credit +
         '<div id="wm-ai" class="notice" hidden></div>';
+
+      // Precomputed: no key, no network, no wait. Only offer the live tutor
+      // as an extra, and only when a provider is actually available.
+      renderExplanation(w);
 
       $('#word-modal').hidden = false;
       // Kids tap a word mainly to hear it — don't make them find the button.
@@ -281,6 +286,50 @@
 
   /* Passing wordId lets SpeechEngine prefer a contributor's own recording
      over any synthesiser — the top rung of its source ladder. */
+  /* Show the shipped explanation for a word. Community-contributed words have
+     none, which is expected — they fall back to the "ask the tutor" offer. */
+  function renderExplanation(word) {
+    var box = $('#wm-explain');
+    if (!box) return;
+
+    global.Content.explain(word).then(function (info) {
+      var askButton = isKids()
+        ? ''
+        : '<button class="btn btn-ghost btn-sm" data-explain="' + esc(word.id) + '">✨ Ask the tutor for more</button>';
+
+      if (!info) {
+        box.innerHTML = askButton
+          ? '<div class="wm-explain-empty">' + askButton + '</div>'
+          : '';
+        // Only show the button if a provider can actually answer.
+        gateAskButton(box);
+        return;
+      }
+
+      box.innerHTML =
+        '<div class="wm-explain">' +
+          '<p class="wm-usage">' + esc(info.usage) + '</p>' +
+          (info.dialect ? '<p class="wm-dialect"><b>Dialect:</b> ' + esc(info.dialect) + '</p>' : '') +
+          (info.examples || []).map(function (ex) {
+            return '<div class="wm-extra-example">' +
+              '<button class="btn btn-ghost btn-sm" data-speak="' + esc(ex.gurmukhi) + '">🔊</button>' +
+              '<div><p lang="pa">' + esc(ex.gurmukhi) + '</p>' +
+              (state.settings.showLatin && ex.latin ? '<p class="wm-latin">' + esc(ex.latin) + '</p>' : '') +
+              '<p class="wm-ex-english">' + esc(ex.english) + '</p></div></div>';
+          }).join('') +
+          askButton +
+        '</div>';
+      gateAskButton(box);
+    });
+  }
+
+  function gateAskButton(box) {
+    var btn = $('[data-explain]', box);
+    if (!btn) return;
+    btn.hidden = true;
+    global.AiTutor.isConfigured().then(function (ok) { btn.hidden = !ok; });
+  }
+
   function speakOpts(wordId) {
     return {
       rate: state.settings.voiceRate,
@@ -808,9 +857,12 @@
      ══════════════════════════════════════════════════ */
 
   function renderTranslate() {
-    global.AiTutor.isConfigured().then(function (ok) {
-      $('#translate-setup').hidden = ok;
-      $('#btn-translate').disabled = !ok;
+    // The offline dictionary always works, so the button is never disabled.
+    // The notice only warns that NOVEL phrases need a provider.
+    global.AiTutor.probeProxy().then(function (caps) {
+      return global.AiTutor.isConfigured().then(function (keyed) {
+        $('#translate-setup').hidden = !!(caps.nmt || caps.translate || keyed);
+      });
     });
   }
 
@@ -825,21 +877,38 @@
     var btn = $('#btn-translate');
     btn.disabled = true;
 
-    global.AiTutor.translate(text, { direction: state.translateDir })
+    global.Translate.run(text, { direction: state.translateDir })
       .then(function (result) {
         state.lastTranslation = result;
 
+        var badge = {
+          dictionary: '<span class="tr-badge offline">📖 From the dictionary — offline</span>',
+          phrasebook: '<span class="tr-badge offline">💬 From the phrasebook — offline</span>',
+          bhashini: '<span class="tr-badge">🇮🇳 IndicTrans2</span>',
+          claude: '<span class="tr-badge">✨ AI translation</span>'
+        }[result.source] || '';
+
+        var machine = result.source === 'bhashini' || result.source === 'claude';
+
         box.innerHTML =
           '<div class="panel translate-out">' +
+            badge +
             '<p class="tr-gurmukhi" lang="pa">' + esc(result.gurmukhi) + '</p>' +
             (result.latin ? '<p class="tr-latin">' + esc(result.latin) + '</p>' : '') +
             (result.english ? '<p class="tr-english">' + esc(result.english) + '</p>' : '') +
             (result.note ? '<p class="tr-note">' + esc(result.note) + '</p>' : '') +
+            (result.example && result.example.gurmukhi
+              ? '<p class="tr-example" lang="pa">' + esc(result.example.gurmukhi) + '</p>' : '') +
             '<div class="tr-actions">' +
-              '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(result.gurmukhi) + '">🔊 Hear it</button>' +
-              '<button class="btn btn-primary btn-sm" type="button" id="btn-save-translation">➕ Add to the dictionary</button>' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(result.gurmukhi) + '"' +
+                (result.wordId ? ' data-speak-word="' + esc(result.wordId) + '"' : '') + '>🔊 Hear it</button>' +
+              (result.wordId
+                ? '<button class="btn btn-ghost btn-sm" type="button" data-word="' + esc(result.wordId) + '">📖 Open the entry</button>'
+                : '<button class="btn btn-primary btn-sm" type="button" id="btn-save-translation">➕ Add to the dictionary</button>') +
             '</div>' +
-            '<p class="hint">Machine translation — if you know this is right, adding it lets other speakers confirm it.</p>' +
+            (machine
+              ? '<p class="hint">Machine translation — if you know it is right, adding it lets other speakers confirm it.</p>'
+              : '') +
           '</div>';
       })
       .catch(function (err) {
@@ -887,8 +956,14 @@
      ══════════════════════════════════════════════════ */
 
   function renderTutor() {
+    renderLessonList();
+    renderPhraseGroups();
+    renderPhrases();
+
     global.AiTutor.isConfigured().then(function (ok) {
       $('#tutor-setup').hidden = ok;
+      $('#chat-form').hidden = !ok;
+      $('#chat-suggestions').hidden = !ok;
     });
 
     $('#chat-suggestions').innerHTML = global.AiTutor.suggestions(state.settings.mode)
@@ -904,6 +979,87 @@
             : 'Ask about a word, a dialect, or check a sentence you wrote.') + '</p>' +
         '</div>';
     }
+  }
+
+  function showTutorTab(name) {
+    ['lessons', 'phrases', 'chat'].forEach(function (t) {
+      $('#tab-' + t).hidden = t !== name;
+    });
+    $$('#view-tutor .tab').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+  }
+
+  /* ── lessons ─────────────────────────────────── */
+
+  function renderLessonList() {
+    $('#lesson-detail').hidden = true;
+    $('#lesson-list').hidden = false;
+
+    $('#lesson-list').innerHTML = global.Content.lessons().map(function (l) {
+      return '<button class="lesson-card" type="button" data-lesson="' + esc(l.id) + '">' +
+        '<span class="lc-emoji" aria-hidden="true">' + esc(l.emoji) + '</span>' +
+        '<span class="lc-text">' +
+          '<span class="lc-title">' + esc(l.title) + '</span>' +
+          '<span class="lc-summary">' + esc(l.summary) + '</span>' +
+          '<span class="lc-meta">' + l.minutes + ' min read</span>' +
+        '</span></button>';
+    }).join('');
+  }
+
+  function openLesson(id) {
+    var lesson = global.Content.lesson(id);
+    if (!lesson) return;
+
+    var body = lesson.blocks.map(function (b) {
+      if (b.t === 'h')   return '<h3 class="ls-h">' + esc(b.text) + '</h3>';
+      if (b.t === 'tip') return '<p class="ls-tip">' + esc(b.text) + '</p>';
+      if (b.t === 'pair') {
+        return '<div class="ls-pair">' +
+          '<button class="btn btn-ghost btn-sm ls-speak" type="button" data-speak="' + esc(b.gurmukhi) + '">🔊</button>' +
+          '<div>' +
+            '<p class="ls-gurmukhi" lang="pa">' + esc(b.gurmukhi) + '</p>' +
+            (state.settings.showLatin ? '<p class="ls-latin">' + esc(b.latin) + '</p>' : '') +
+            '<p class="ls-english">' + esc(b.english) + '</p>' +
+            (b.note ? '<p class="ls-note">' + esc(b.note) + '</p>' : '') +
+          '</div></div>';
+      }
+      return '<p class="ls-p">' + esc(b.text) + '</p>';
+    }).join('');
+
+    $('#lesson-body').innerHTML =
+      '<h2 class="ls-title"><span aria-hidden="true">' + esc(lesson.emoji) + '</span> ' +
+        esc(lesson.title) + '</h2>' + body;
+
+    $('#lesson-list').hidden = true;
+    $('#lesson-detail').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  /* ── phrasebook ──────────────────────────────── */
+
+  function renderPhraseGroups() {
+    var groups = global.Content.phraseGroups();
+    $('#phrase-groups').innerHTML =
+      '<button class="chip active" data-pgroup="all">All</button>' +
+      groups.map(function (g) {
+        return '<button class="chip" data-pgroup="' + esc(g.id) + '">' +
+          g.emoji + ' ' + esc(g.label) + '</button>';
+      }).join('');
+  }
+
+  function renderPhrases() {
+    var list = global.Content.phrases(state.phraseGroup);
+    $('#phrase-list').innerHTML = list.map(function (p) {
+      return '<div class="phrase-card">' +
+        '<button class="btn btn-ghost btn-sm ph-speak" type="button" data-speak="' + esc(p.gurmukhi) + '">🔊</button>' +
+        '<div class="ph-text">' +
+          '<p class="ph-gurmukhi" lang="pa">' + esc(p.gurmukhi) + '</p>' +
+          (state.settings.showLatin ? '<p class="ph-latin">' + esc(p.latin) + '</p>' : '') +
+          '<p class="ph-english">' + esc(p.english) + '</p>' +
+          (p.note ? '<p class="ph-note">' + esc(p.note) + '</p>' : '') +
+        '</div></div>';
+    }).join('');
   }
 
   function sendChat(text) {
@@ -1337,7 +1493,11 @@
         });
         return;
       }
-      if (e.target.closest('#btn-save-translation')) saveTranslationToDictionary();
+      if (e.target.closest('#btn-save-translation')) { saveTranslationToDictionary(); return; }
+
+      // A local dictionary hit links straight through to the full entry.
+      var entry = e.target.closest('[data-word]');
+      if (entry) openWord(entry.dataset.word);
     });
 
     // Ctrl/Cmd+Enter submits — the textarea needs plain Enter for newlines.
@@ -1358,6 +1518,25 @@
       if (chip) sendChat(chip.dataset.suggest);
     });
     $('#btn-tutor-settings').addEventListener('click', openSettings);
+
+    // Tabs, lessons and the phrasebook — all offline content.
+    $('#view-tutor').addEventListener('click', function (e) {
+      var tab = e.target.closest('[data-tab]');
+      if (tab) { showTutorTab(tab.dataset.tab); return; }
+
+      var lesson = e.target.closest('[data-lesson]');
+      if (lesson) { openLesson(lesson.dataset.lesson); return; }
+
+      var group = e.target.closest('[data-pgroup]');
+      if (group) {
+        state.phraseGroup = group.dataset.pgroup;
+        $$('#phrase-groups .chip').forEach(function (c) {
+          c.classList.toggle('active', c === group);
+        });
+        renderPhrases();
+      }
+    });
+    $('#btn-lesson-back').addEventListener('click', renderLessonList);
 
     /* ── settings ── */
     ['#s-mode', '#s-theme', '#s-voice', '#s-showlatin', '#s-model', '#s-dialect'].forEach(function (sel) {

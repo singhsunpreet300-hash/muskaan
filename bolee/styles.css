@@ -519,6 +519,100 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
 
 #revision-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
+/* ── Tabs (tutor view) ──────────────────────────── */
+.tab-row {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  padding: 4px; border-radius: 999px; background: var(--surface-2);
+}
+.tab {
+  flex: 1; padding: 9px 10px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--ink-soft);
+  font-size: .84rem; font-weight: 700;
+  transition: background .15s, color .15s;
+}
+.tab.active { background: var(--surface); color: var(--maroon); box-shadow: var(--shadow); }
+:root[data-theme="dark"] .tab.active { color: var(--gold); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tab.active { color: var(--gold); }
+}
+
+/* ── Lessons ────────────────────────────────────── */
+.lesson-card {
+  display: flex; gap: 13px; align-items: flex-start; width: 100%;
+  padding: 15px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow);
+  text-align: left; color: inherit;
+  transition: transform .12s, border-color .12s;
+}
+.lesson-card:hover { transform: translateY(-2px); border-color: var(--gold); }
+.lc-emoji { font-size: 1.8rem; line-height: 1; }
+.lc-text { display: flex; flex-direction: column; gap: 3px; }
+.lc-title { font-weight: 700; font-size: 1rem; }
+.lc-summary { font-size: .86rem; color: var(--ink-soft); }
+.lc-meta { font-size: .72rem; color: var(--gold); font-weight: 700; }
+
+.ls-title { font-size: 1.4rem; margin: 14px 0 12px; }
+.ls-h { font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin: 20px 0 8px; }
+.ls-p { font-size: .95rem; line-height: 1.7; }
+.ls-tip {
+  padding: 13px 15px; margin: 16px 0;
+  border-left: 4px solid var(--gold); border-radius: var(--radius);
+  background: var(--surface-2); font-size: .89rem;
+}
+.ls-pair {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 11px 13px; margin-bottom: 8px;
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.ls-speak { flex-shrink: 0; }
+.ls-gurmukhi { font-family: var(--font-pa); font-size: 1.3rem; margin: 0; }
+.ls-latin { color: var(--gold); font-style: italic; font-size: .8rem; margin: 0; }
+.ls-english { font-size: .92rem; margin: 2px 0 0; }
+.ls-note { font-size: .78rem; color: var(--ink-soft); margin: 3px 0 0; font-style: italic; }
+
+/* ── Phrasebook ─────────────────────────────────── */
+.phrase-card {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 13px 15px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.ph-speak { flex-shrink: 0; }
+.ph-text { flex: 1; }
+.ph-gurmukhi { font-family: var(--font-pa); font-size: 1.25rem; margin: 0 0 2px; }
+.ph-latin { color: var(--gold); font-style: italic; font-size: .8rem; margin: 0; }
+.ph-english { font-size: .92rem; font-weight: 700; margin: 3px 0 0; }
+.ph-note { font-size: .78rem; color: var(--ink-soft); margin: 4px 0 0; font-style: italic; }
+
+/* ── Word-modal explanation ─────────────────────── */
+.wm-explain {
+  margin-top: 14px; padding: 14px;
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.wm-usage { font-size: .92rem; line-height: 1.65; }
+.wm-dialect { font-size: .82rem; color: var(--ink-soft); }
+.wm-extra-example {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--line);
+}
+.wm-extra-example p[lang="pa"] { font-family: var(--font-pa); font-size: 1.05rem; margin: 0; }
+.wm-ex-english { font-size: .84rem; color: var(--ink-soft); margin: 2px 0 0; }
+.wm-explain-empty { margin-top: 12px; text-align: center; }
+
+/* ── Translate badges ───────────────────────────── */
+.tr-badge {
+  display: inline-block; margin-bottom: 8px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink-soft);
+  font-size: .68rem; font-weight: 700; letter-spacing: .05em;
+}
+.tr-badge.offline { background: color-mix(in srgb, var(--green) 16%, var(--surface-2)); color: var(--green); }
+.tr-example {
+  font-family: var(--font-pa); font-size: 1.05rem;
+  padding: 10px 12px; border-radius: 9px; background: var(--surface-2);
+}
+
 /* ── Tutor ──────────────────────────────────────── */
 .chat-log {
   display: flex; flex-direction: column; gap: 10px;

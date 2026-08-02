@@ -292,19 +292,42 @@
       <h1>ਉਸਤਾਦ <small>Tutor</small></h1>
     </div>
 
-    <div class="notice notice-warn" id="tutor-setup" hidden>
-      <p><b>The tutor needs an API key.</b> This app runs entirely in your browser, so it uses your own Anthropic key — it never leaves this device.</p>
-      <button class="btn btn-sm btn-primary" id="btn-tutor-settings" type="button">Open settings</button>
+    <div class="tab-row" role="tablist">
+      <button class="tab active" type="button" data-tab="lessons" role="tab">📖 Lessons</button>
+      <button class="tab" type="button" data-tab="phrases" role="tab">💬 Phrasebook</button>
+      <button class="tab" type="button" data-tab="chat" role="tab">✨ Ask</button>
     </div>
 
-    <div class="chat-log" id="chat-log" aria-live="polite"></div>
+    <!-- Lessons and the phrasebook ship with the app and need nothing. -->
+    <div id="tab-lessons" class="tab-panel">
+      <div id="lesson-list" class="stack"></div>
+      <article id="lesson-detail" hidden>
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-lesson-back">← All lessons</button>
+        <div id="lesson-body"></div>
+      </article>
+    </div>
 
-    <div class="chip-row" id="chat-suggestions"></div>
+    <div id="tab-phrases" class="tab-panel" hidden>
+      <div class="chip-row" id="phrase-groups"></div>
+      <div id="phrase-list" class="stack"></div>
+    </div>
 
-    <form class="chat-input" id="chat-form">
-      <input type="text" id="chat-text" placeholder="Ask anything about Punjabi…" autocomplete="off" aria-label="Message" />
-      <button type="submit" class="btn btn-primary" id="chat-send" aria-label="Send">➤</button>
-    </form>
+    <div id="tab-chat" class="tab-panel" hidden>
+      <div class="notice notice-warn" id="tutor-setup" hidden>
+        <p><b>Free-form questions need a live AI provider,</b> which is not set up on this
+        deployment. The lessons and phrasebook above work without one. To enable this tab,
+        add your own Anthropic API key in Settings.</p>
+        <button class="btn btn-sm btn-primary" id="btn-tutor-settings" type="button">Open settings</button>
+      </div>
+
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div class="chip-row" id="chat-suggestions"></div>
+
+      <form class="chat-input" id="chat-form">
+        <input type="text" id="chat-text" placeholder="Ask anything about Punjabi…" autocomplete="off" aria-label="Message" />
+        <button type="submit" class="btn btn-primary" id="chat-send" aria-label="Send">➤</button>
+      </form>
+    </div>
   </section>
 
   <!-- ══════════ PROGRESS ══════════ -->
@@ -387,20 +410,26 @@
 
     <h3>AI tutor &amp; translator</h3>
 
+    <div class="notice notice-good compact">
+      <b>No key is needed for most of the app.</b> The dictionary, practice, word explanations,
+      lessons and phrasebook are all built in and work offline. A provider is only used for
+      free-form questions and for translating phrases that aren't already in the dictionary.
+    </div>
+
     <div class="notice notice-good compact" id="provider-ok" hidden>
-      <b>Ready.</b> This deployment provides the tutor and translator, so you don't need a key
-      of your own. <span id="provider-tts-note"></span>
+      <b>A provider is set up on this deployment</b> — you don't need a key of your own.
+      <span id="provider-tts-note"></span>
     </div>
 
     <div class="notice notice-warn compact" id="provider-byo" hidden>
-      This deployment doesn't provide the tutor, so it falls back to your own key — sent to
+      No provider is set up here, so free-form questions fall back to your own key — sent to
       Anthropic straight from this page and stored on this device, where anything else running
       on this page can read it. Use a personal key with a spend limit, never a shared or
       production one.
     </div>
 
     <label class="field">
-      <span>Anthropic API key <small class="muted">(only needed as a fallback)</small></span>
+      <span>Anthropic API key <small class="muted">(optional)</small></span>
       <input type="password" id="s-apikey" placeholder="sk-ant-…" autocomplete="off" />
     </label>
     <label class="field">
@@ -429,13 +458,17 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="js/vocabulary.js"></script>
+<script src="data/phrases.js"></script>
+<script src="data/lessons.js"></script>
 <script src="js/store.js"></script>
+<script src="js/content.js"></script>
 <script src="js/ai-tutor.js"></script>
 <script src="js/bhashini.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/practice.js"></script>
 <script src="js/contribute.js"></script>
 <script src="js/verify.js"></script>
+<script src="js/translate.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

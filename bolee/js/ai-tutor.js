@@ -24,7 +24,7 @@
   var DEFAULT_MODEL = 'claude-sonnet-5';
   var MAX_TOKENS = 1024;
 
-  var NO_PROVIDERS = { chat: false, translate: false, tts: false };
+  var NO_PROVIDERS = { chat: false, translate: false, tts: false, nmt: false };
 
   /* How long a probe result is trusted. Short enough that turning the env
      vars on in Netlify shows up quickly, long enough that a host without
@@ -46,10 +46,14 @@
         .then(function (res) { return res.ok ? res.json() : NO_PROVIDERS; })
         .catch(function () { return NO_PROVIDERS; })
         .then(function (caps) {
+          // Normalise to booleans — and keep every capability. Dropping one
+          // here silently disables that rung of the ladder with no error
+          // anywhere, which is exactly what happened to `nmt`.
           var value = {
             chat: !!caps.chat,
             translate: !!caps.translate,
-            tts: !!caps.tts
+            tts: !!caps.tts,
+            nmt: !!caps.nmt
           };
           // Remember it so the next page load doesn't repeat the request.
           return global.Store.setSettings({
