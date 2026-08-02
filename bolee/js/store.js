@@ -27,8 +27,19 @@
     votes:    NS + 'votes',     // { wordId: [vote, ...] }
     profile:  NS + 'profile',
     progress: NS + 'progress',  // { wordId: srs }
-    settings: NS + 'settings'
+    settings: NS + 'settings',
+    ledger:   NS + 'ledger'     // { contributorId: {reputation, verifiedCount, ...} }
   };
+
+  /* Reputation lives in a ledger keyed by contributor id, not on the local
+     profile. A word is settled by whoever casts the deciding vote — never by
+     its author — so crediting "the current profile" credited the wrong person
+     and the author's +2 was unreachable. The ledger lets us credit an id we
+     are not currently logged in as, which is also the shape a shared backend
+     needs. */
+  function blankLedgerEntry() {
+    return { reputation: 0, verifiedCount: 0, disputedCount: 0, submitted: 0, votesCast: 0 };
+  }
 
   var DEFAULT_SETTINGS = {
     mode: 'adult',          // 'adult' | 'kids'
@@ -38,7 +49,9 @@
     voiceURI: '',
     showLatin: true,
     apiKey: '',
-    model: 'claude-sonnet-5'
+    model: 'claude-sonnet-5',
+    providerCaps: null,     // cached result of the proxy capability probe
+    providerCapsAt: 0
   };
 
   /* ── tiny helpers ───────────────────────────────── */
@@ -206,16 +219,14 @@
         // Seed a profile on first run so every action has an author.
         var profile = backend.read(KEYS.profile, null);
         if (!profile) {
+          // Identity and preferences only — the earned numbers come from the
+          // ledger, merged in by getProfile().
           backend.write(KEYS.profile, {
             id: uid('user'),
             name: '',
             dialect: 'common',
-            reputation: 0,
             role: 'contributor',
-            joinedAt: new Date().toISOString(),
-            submitted: 0,
-            verifiedCount: 0,
-            votesCast: 0
+            joinedAt: new Date().toISOString()
           });
         }
         ready = true;
@@ -329,18 +340,82 @@
       });
     },
 
-    /* ── Profile ────────────────────────────────────── */
+    /* ── Reputation ledger ──────────────────────────── */
+
+    /** Ledger entry for one contributor, or the whole map when id is omitted. */
+    getLedger: function (contributorId) {
+      return Promise.resolve().then(function () {
+        var all = backend.read(KEYS.ledger, {});
+        if (contributorId == null) return clone(all);
+        return clone(all[contributorId] || blankLedgerEntry());
+      });
+    },
+
+    /**
+     * Apply additive deltas to a contributor's ledger entry.
+     * Additive rather than absolute so two settlements can't clobber
+     * each other by writing a stale total.
+     */
+    creditLedger: function (contributorId, deltas) {
+      return Promise.resolve().then(function () {
+        if (!contributorId) return null;
+        var all = backend.read(KEYS.ledger, {});
+        var entry = all[contributorId] || blankLedgerEntry();
+        Object.keys(deltas).forEach(function (k) {
+          entry[k] = (entry[k] || 0) + deltas[k];
+        });
+        // Reputation can go negative in principle; floor it so vote weight
+        // and the UI never show something nonsensical.
+        if (entry.reputation < 0) entry.reputation = 0;
+        all[contributorId] = entry;
+        backend.write(KEYS.ledger, all);
+        return clone(entry);
+      });
+    },
+
+    /** Drop every vote on a word — used when a disputed word is revised, so
+        the corrected version is judged fresh instead of inheriting the doubts
+        that were raised against the old text. */
+    clearVotes: function (wordId) {
+      return Promise.resolve().then(function () {
+        var all = backend.read(KEYS.votes, {});
+        delete all[wordId];
+        backend.write(KEYS.votes, all);
+        return true;
+      });
+    },
+
+    /* ── Profile ────────────────────────────────────
+       Identity and preferences live on the profile; the earned numbers are
+       merged in from the ledger so there is one source of truth. */
 
     getProfile: function () {
-      return Promise.resolve(backend.read(KEYS.profile, null));
+      return Promise.resolve().then(function () {
+        var profile = backend.read(KEYS.profile, null);
+        if (!profile) return null;
+        var all = backend.read(KEYS.ledger, {});
+        var entry = all[profile.id] || blankLedgerEntry();
+        Object.keys(entry).forEach(function (k) { profile[k] = entry[k]; });
+        return profile;
+      });
     },
 
     updateProfile: function (patch) {
       return Promise.resolve().then(function () {
         var profile = backend.read(KEYS.profile, {}) || {};
-        Object.keys(patch).forEach(function (k) { profile[k] = patch[k]; });
+        var ledgerFields = blankLedgerEntry();
+        var identityPatch = {};
+
+        Object.keys(patch).forEach(function (k) {
+          // Earned numbers are ledger-owned — route them there rather than
+          // letting a caller set an absolute value on the profile.
+          if (k in ledgerFields) return;
+          identityPatch[k] = patch[k];
+          profile[k] = patch[k];
+        });
+
         backend.write(KEYS.profile, profile);
-        return clone(profile);
+        return Store.getProfile();
       });
     },
 
@@ -404,6 +479,7 @@
           words: backend.read(KEYS.words, []),
           votes: backend.read(KEYS.votes, {}),
           progress: backend.read(KEYS.progress, {}),
+          ledger: backend.read(KEYS.ledger, {}),
           audioWordIds: parts[2] || []
         }, null, 2);
       });
@@ -446,10 +522,24 @@
             if (!progress[id]) { progress[id] = data.progress[id]; summary.progress++; }
           });
           backend.write(KEYS.progress, progress);
+
+          // Take the higher of the two ledgers per contributor — merging two
+          // devices should never lose reputation someone already earned.
+          var ledger = backend.read(KEYS.ledger, {});
+          Object.keys(data.ledger || {}).forEach(function (cid) {
+            var mine = ledger[cid] || blankLedgerEntry();
+            var theirs = data.ledger[cid] || {};
+            Object.keys(theirs).forEach(function (k) {
+              mine[k] = Math.max(mine[k] || 0, theirs[k] || 0);
+            });
+            ledger[cid] = mine;
+          });
+          backend.write(KEYS.ledger, ledger);
         } else {
           backend.write(KEYS.words, data.words || []);
           backend.write(KEYS.votes, data.votes || {});
           backend.write(KEYS.progress, data.progress || {});
+          backend.write(KEYS.ledger, data.ledger || {});
           summary.words = (data.words || []).length;
           summary.progress = Object.keys(data.progress || {}).length;
           summary.votes = Object.keys(data.votes || {}).length;
@@ -476,6 +566,7 @@
         backend.remove(KEYS.words);
         backend.remove(KEYS.votes);
         backend.remove(KEYS.progress);
+        backend.remove(KEYS.ledger);
         if (!opts.keepProfile) backend.remove(KEYS.profile);
         if (!opts.keepSettings) backend.remove(KEYS.settings);
         return AudioStore.clear().catch(function () {});

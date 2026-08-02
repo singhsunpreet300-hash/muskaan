@@ -34,6 +34,14 @@
     'ੲ': '',   'ੳ': '',   'ੴ': 'ik oankaar'
   };
 
+  /* Independent vowels already carry their own vowel — they must not also
+     pick up the inherent 'a', or ਅੱਜ comes out "aajj" instead of "ajj". */
+  var INDEPENDENT_VOWELS = {
+    'ਅ': 1, 'ਆ': 1, 'ਇ': 1, 'ਈ': 1, 'ਉ': 1,
+    'ਊ': 1, 'ਏ': 1, 'ਐ': 1, 'ਓ': 1, 'ਔ': 1,
+    'ੲ': 1, 'ੳ': 1, 'ੴ': 1
+  };
+
   var VOWEL_SIGNS = {
     'ਾ': 'aa', 'ਿ': 'i',  'ੀ': 'ee', 'ੁ': 'u',
     'ੂ': 'oo', 'ੇ': 'e',  'ੈ': 'ai', 'ੋ': 'o', 'ੌ': 'au'
@@ -77,7 +85,7 @@
       if (CONSONANTS[c]) {
         out += applyGeminate(CONSONANTS[c], pendingGeminate);
         pendingGeminate = false;
-        out += implicitA(chars, i);
+        if (!INDEPENDENT_VOWELS[c]) out += implicitA(chars, i);
         continue;
       }
 
@@ -90,21 +98,25 @@
     return out.replace(/\s+/g, ' ').trim();
   }
 
+  /* The addak doubles the consonant that FOLLOWS it. Repeating the leading
+     stop gives the conventional romanisation for aspirates too:
+     j → jj (ਮੱਝ majjh), kh → kkh (ਮੱਖਣ makkhan), dh → ddh (ਦੁੱਧ duddh). */
   function applyGeminate(sound, geminate) {
-    if (!geminate) return sound;
-    // Double the first consonant letter: k → kk, ch → cch reads badly, so
-    // repeat the leading char only.
+    if (!geminate || !sound) return sound;
     return sound.charAt(0) + sound;
   }
 
-  /* A bare consonant carries an inherent short 'a' unless a vowel sign,
-     virama or another modifier follows. Word-final consonants usually drop it. */
+  /* A bare consonant carries an inherent short 'a' unless a vowel sign or
+     virama follows. Word-final consonants usually drop it.
+
+     An addak is NOT such a case: in ਮੱਝ the ਮ still carries its 'a' and the
+     addak doubles the following ਝ — majjh, not mjjh. */
   function implicitA(chars, idx) {
     var next = chars[idx + 1];
     if (next === undefined) return '';                    // word-final: silent
     if (VOWEL_SIGNS[next]) return '';
-    if (next === '੍' || next === 'ੱ') return '';
-    if (next === 'ੰ' || next === 'ਂ') return '';
+    if (next === '੍') return '';                          // virama: consonant cluster
+    if (next === 'ੰ' || next === 'ਂ') return '';          // nasal carries its own vowel
     if (/\s/.test(next)) return '';                       // syllable-final
     return 'a';
   }
@@ -271,11 +283,10 @@
             });
         });
       }).then(function (saved) {
-        return global.Store.getProfile().then(function (profile) {
-          return global.Store.updateProfile({ submitted: (profile.submitted || 0) + 1 });
-        }).then(function () {
-          return { ok: true, word: saved };
-        });
+        return global.Store.creditLedger(saved.contributorId, { submitted: 1 })
+          .then(function () {
+            return { ok: true, word: saved };
+          });
       });
     },
 

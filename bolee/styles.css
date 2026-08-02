@@ -496,6 +496,29 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
 .status-pending  { border-left-color: var(--gold); }
 .status-disputed { border-left-color: var(--saffron); }
 
+/* ── Translate ──────────────────────────────────── */
+.dir-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.dir-row .pill { flex: 1; text-align: center; }
+
+.translate-out { margin-top: 14px; }
+.tr-gurmukhi { font-family: var(--font-pa); font-size: 1.9rem; line-height: 1.45; margin-bottom: 4px; }
+.tr-latin { color: var(--gold); font-style: italic; font-size: .92rem; }
+.tr-english { font-size: 1rem; font-weight: 700; }
+.tr-note {
+  font-size: .84rem; color: var(--ink-soft); font-style: italic;
+  padding: 9px 12px; border-radius: 9px; background: var(--surface-2);
+}
+.tr-actions { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0 8px; }
+
+#translate-input {
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg); outline: none; resize: vertical;
+}
+#translate-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+
+#revision-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
 /* ── Tutor ──────────────────────────────────────── */
 .chat-log {
   display: flex; flex-direction: column; gap: 10px;

@@ -125,11 +125,54 @@
     /* ── Speak ────────────────────────────────────── */
 
     /**
-     * Speak text aloud. Resolves when the utterance finishes.
-     * Never rejects on an unsupported browser — it resolves false,
-     * so a caller can chain UI without a try/catch everywhere.
+     * Speak Punjabi aloud, using the best source available.
+     *
+     * The ladder, best first:
+     *   1. a contributor's own recording — a native speaker saying a theth
+     *      word beats any synthesiser, and it's why we collect them
+     *   2. Bhashini Punjabi TTS — real pa voice, when the deployment has it
+     *   3. the browser's own voice — almost always a Hindi stand-in
+     *   4. nothing, resolved quietly
+     *
+     * Never rejects. A caller chains UI off this without a try/catch, and a
+     * missing provider must never become a visible error.
+     *
+     * @param {string} text
+     * @param {object} [opts] { rate, voiceURI, wordId, preferHuman }
+     * @returns {Promise<boolean>} true if something was actually heard
      */
     speak: function (text, opts) {
+      opts = opts || {};
+      if (!text) return Promise.resolve(false);
+
+      var self = this;
+
+      // 1. Contributor recording, when we know which word this is.
+      var human = (opts.preferHuman === false || !opts.wordId || !global.Store)
+        ? Promise.resolve(null)
+        : global.Store.audio.get(opts.wordId).catch(function () { return null; });
+
+      return human.then(function (clip) {
+        if (clip) return self.playBlob(clip);
+
+        // 2. Bhashini Punjabi TTS.
+        var punjabi = global.Bhashini
+          ? global.Bhashini.synthesise(text).catch(function () { return null; })
+          : Promise.resolve(null);
+
+        return punjabi.then(function (blob) {
+          if (blob) return self.playBlob(blob);
+          // 3. Browser voice.
+          return self.speakWithBrowser(text, opts);
+        });
+      });
+    },
+
+    /**
+     * Browser speech synthesis only — the bottom of the ladder, exposed so
+     * callers that specifically want the local voice can ask for it.
+     */
+    speakWithBrowser: function (text, opts) {
       opts = opts || {};
       if (!synth || !text) return Promise.resolve(false);
 
@@ -151,19 +194,21 @@
           u.pitch = typeof opts.pitch === 'number' ? opts.pitch : 1;
 
           var settled = false;
+          // Chrome silently drops long utterances; the guard makes sure this
+          // promise always settles rather than hanging a caller forever.
+          var guard = null;
+
           function finish(ok) {
             if (settled) return;
             settled = true;
+            if (guard) clearTimeout(guard);
             resolve(ok);
           }
 
           u.onend = function () { finish(true); };
           u.onerror = function () { finish(false); };
 
-          // Chrome silently drops long utterances; guard so we always resolve.
-          var guard = setTimeout(function () { finish(false); }, 15000);
-          var origFinish = finish;
-          finish = function (ok) { clearTimeout(guard); origFinish(ok); };
+          guard = setTimeout(function () { finish(false); }, 15000);
 
           synth.speak(u);
         });

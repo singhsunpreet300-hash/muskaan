@@ -18,10 +18,12 @@
 
   var SRS = {
     MIN_EASE: 1.3,
+    MAX_EASE: 2.8,         // uncapped ease compounds into absurd intervals
     START_EASE: 2.5,
     FIRST_INTERVAL: 1,     // days, after a correct first answer
     SECOND_INTERVAL: 3,
     LAPSE_INTERVAL: 1,     // wrong answer sends it back to tomorrow
+    MAX_INTERVAL: 365,     // a word must resurface at least once a year
     EASE_UP: 0.1,
     EASE_DOWN: 0.2
   };
@@ -62,7 +64,10 @@
       if (next.reps === 1)       next.interval = SRS.FIRST_INTERVAL;
       else if (next.reps === 2)  next.interval = SRS.SECOND_INTERVAL;
       else                       next.interval = Math.round(next.interval * next.ease);
-      next.ease = Math.round((next.ease + SRS.EASE_UP) * 100) / 100;
+      // Both caps matter: without them eight correct answers schedule a word
+      // 1900+ days out, which deletes it from the learner's life.
+      next.interval = Math.min(next.interval, SRS.MAX_INTERVAL);
+      next.ease = Math.min(SRS.MAX_EASE, Math.round((next.ease + SRS.EASE_UP) * 100) / 100);
     } else {
       next.lapses += 1;
       next.reps = 0;
@@ -96,16 +101,36 @@
   }
 
   /** Pick `n` distractors from the same category when possible — a quiz where
-      the wrong answers come from another category is trivially guessable. */
-  function pickDistractors(word, pool, n) {
-    var sameCategory = pool.filter(function (w) {
-      return w.id !== word.id && w.category === word.category;
+      the wrong answers come from another category is trivially guessable.
+
+      When the choices are rendered as emoji, a distractor sharing the target's
+      emoji makes the question unanswerable: the child sees two identical tiles
+      and no correct answer. The seed data is now collision-free per category,
+      but contributors will inevitably reuse emoji, so guard here too. */
+  function pickDistractors(word, pool, n, opts) {
+    opts = opts || {};
+    var eligible = pool.filter(function (w) {
+      if (w.id === word.id) return false;
+      if (opts.distinctEmoji && w.emoji === word.emoji) return false;
+      return true;
     });
-    var others = pool.filter(function (w) {
-      return w.id !== word.id && w.category !== word.category;
-    });
+
+    var sameCategory = eligible.filter(function (w) { return w.category === word.category; });
+    var others = eligible.filter(function (w) { return w.category !== word.category; });
+
     var picks = shuffle(sameCategory).slice(0, n);
     if (picks.length < n) picks = picks.concat(shuffle(others).slice(0, n - picks.length));
+
+    // Emoji must also be distinct among the distractors themselves.
+    if (opts.distinctEmoji) {
+      var seen = {};
+      seen[word.emoji] = true;
+      picks = picks.filter(function (w) {
+        if (seen[w.emoji]) return false;
+        seen[w.emoji] = true;
+        return true;
+      });
+    }
     return picks;
   }
 
@@ -115,7 +140,7 @@
     switch (type) {
       case 'audio-to-emoji':
         q.prompt = { kind: 'audio', text: word.gurmukhi };
-        q.choices = shuffle(pickDistractors(word, pool, 3).concat([word]))
+        q.choices = shuffle(pickDistractors(word, pool, 3, { distinctEmoji: true }).concat([word]))
           .map(function (w) {
             return { id: w.id, emoji: w.emoji, label: w.meaning, correct: w.id === word.id };
           });
@@ -123,7 +148,7 @@
 
       case 'gurmukhi-to-emoji':
         q.prompt = { kind: 'gurmukhi', text: word.gurmukhi };
-        q.choices = shuffle(pickDistractors(word, pool, 3).concat([word]))
+        q.choices = shuffle(pickDistractors(word, pool, 3, { distinctEmoji: true }).concat([word]))
           .map(function (w) {
             return { id: w.id, emoji: w.emoji, label: w.meaning, correct: w.id === word.id };
           });
@@ -303,8 +328,14 @@
         var latin = String(question.acceptLatin).toLowerCase().replace(/[^a-z]/g, '');
         var givenLatin = value.toLowerCase().replace(/[^a-z]/g, '');
         if (givenLatin && givenLatin === latin) return { correct: true, matched: 'latin' };
-        // Romanisation is genuinely unstandardised — allow one edit.
-        if (givenLatin && levenshtein(givenLatin, latin) <= 1) {
+
+        /* Romanisation is genuinely unstandardised, so one edit is forgiven —
+           but only on longer words, and only when the first letter matches.
+           An unconditional edit distance of 1 accepted "char" for "ghar", and
+           ਚਾਰ chaar is a real word: the app was confirming a wrong answer. */
+        if (givenLatin && latin.length >= 5 &&
+            givenLatin.charAt(0) === latin.charAt(0) &&
+            levenshtein(givenLatin, latin) <= 1) {
           return { correct: true, matched: 'latin-close' };
         }
       }
@@ -383,6 +414,7 @@
 
   Practice._normalise = normalise;
   Practice._levenshtein = levenshtein;
+  Practice._pickDistractors = pickDistractors;
 
   global.Practice = Practice;
 

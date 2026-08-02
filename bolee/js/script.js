@@ -10,8 +10,8 @@
 (function (global) {
   'use strict';
 
-  var VIEWS = ['learn', 'practice', 'contribute', 'review', 'tutor', 'progress'];
-  var KIDS_BLOCKED = ['contribute', 'review'];
+  var VIEWS = ['learn', 'practice', 'contribute', 'review', 'translate', 'tutor', 'progress'];
+  var KIDS_BLOCKED = ['contribute', 'review', 'translate'];
 
   var state = {
     settings: null,
@@ -20,7 +20,10 @@
     session: null,
     chat: [],
     recording: null,
-    streaming: false
+    streaming: false,
+    revisingId: null,
+    translateDir: 'en-pa',
+    lastTranslation: null
   };
 
   var $  = function (sel, root) { return (root || document).querySelector(sel); };
@@ -72,6 +75,14 @@
         // browser that ships none. They're only needed for playback and the
         // settings dropdown, so don't hold first paint hostage to them.
         global.SpeechEngine.loadVoices().then(populateVoices);
+
+        /* Warm the provider probe once, in the background. Doing it here
+           rather than on the first tap means Punjabi TTS is ready by the time
+           anyone presses play, and the result is cached so this is one request
+           per user rather than one per action. On a host without the function
+           this logs a single 404 and we fall back — which is the intended
+           detection mechanism, not a failure. */
+        global.AiTutor.probeProxy();
       })
       .catch(function (err) {
         console.error('[App] boot failed', err);
@@ -140,6 +151,7 @@
       practice: renderPracticeSetup,
       contribute: renderContribute,
       review: renderReview,
+      translate: renderTranslate,
       tutor: renderTutor,
       progress: renderProgress
     };
@@ -252,7 +264,7 @@
             ' · ' + esc(dialectLabel(w.dialect)) + ' · ' + esc(tierLabel(w.tier)) + '</p>' +
         '</div>' +
         '<div class="wm-actions">' +
-          '<button class="btn btn-primary" data-speak="' + esc(w.gurmukhi) + '">🔊 Hear it</button>' +
+          '<button class="btn btn-primary" data-speak="' + esc(w.gurmukhi) + '" data-speak-word="' + esc(w.id) + '">🔊 Hear it</button>' +
           (w.hasAudio ? '<button class="btn btn-ghost" data-play-clip="' + esc(w.id) + '">🎙 Speaker recording</button>' : '') +
           (isKids() ? '' : '<button class="btn btn-ghost" data-explain="' + esc(w.id) + '">✨ Ask the tutor</button>') +
         '</div>' +
@@ -263,12 +275,18 @@
 
       $('#word-modal').hidden = false;
       // Kids tap a word mainly to hear it — don't make them find the button.
-      if (isKids()) global.SpeechEngine.speak(w.gurmukhi, speakOpts());
+      if (isKids()) global.SpeechEngine.speak(w.gurmukhi, speakOpts(w.id));
     });
   }
 
-  function speakOpts() {
-    return { rate: state.settings.voiceRate, voiceURI: state.settings.voiceURI };
+  /* Passing wordId lets SpeechEngine prefer a contributor's own recording
+     over any synthesiser — the top rung of its source ladder. */
+  function speakOpts(wordId) {
+    return {
+      rate: state.settings.voiceRate,
+      voiceURI: state.settings.voiceURI,
+      wordId: wordId || null
+    };
   }
 
   function dialectLabel(id) {
@@ -364,21 +382,22 @@
 
     // Audio prompts play themselves — that's the whole question.
     if (q.prompt.kind === 'audio') {
-      global.SpeechEngine.speak(q.prompt.text, speakOpts());
+      global.SpeechEngine.speak(q.prompt.text, speakOpts(q.wordId));
     }
   }
 
   function renderPrompt(q) {
     var p = q.prompt;
+    var w = ' data-speak-word="' + esc(q.wordId) + '"';
     switch (p.kind) {
       case 'audio':
         return '<div class="q-prompt q-audio">' +
-          '<button class="big-speaker" type="button" data-speak="' + esc(p.text) + '" aria-label="Play the word again">🔊</button>' +
+          '<button class="big-speaker" type="button" data-speak="' + esc(p.text) + '"' + w + ' aria-label="Play the word again">🔊</button>' +
           '<p class="q-hint">Listen, then tap what it means</p></div>';
       case 'gurmukhi':
         return '<div class="q-prompt">' +
           '<p class="q-gurmukhi" lang="pa">' + esc(p.text) + '</p>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(p.text) + '">🔊</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(p.text) + '"' + w + '>🔊</button>' +
           '<p class="q-hint">What does this mean?</p></div>';
       case 'blank':
         return '<div class="q-prompt">' +
@@ -388,7 +407,7 @@
         return '<div class="q-prompt">' +
           '<p class="q-gurmukhi" lang="pa">' + esc(p.text) + '</p>' +
           (state.settings.showLatin ? '<p class="q-latin">' + esc(p.latin) + '</p>' : '') +
-          '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(p.text) + '">🔊 Hear it first</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(p.text) + '"' + w + '>🔊 Hear it first</button>' +
           '<p class="q-hint">Now say it out loud</p></div>';
       default:
         return '<div class="q-prompt">' +
@@ -428,7 +447,7 @@
     var listen = $('#btn-listen');
     if (listen) listen.disabled = true;
 
-    if (!correct || isKids()) global.SpeechEngine.speak(q.word.gurmukhi, speakOpts());
+    if (!correct || isKids()) global.SpeechEngine.speak(q.word.gurmukhi, speakOpts(q.wordId));
 
     $('#btn-next').hidden = false;
     $('#btn-next').textContent = (s.index + 1 >= s.questions.length) ? 'See results' : 'Next';
@@ -505,9 +524,48 @@
                 return '<p><b>' + esc(v.value) + ':</b> ' + esc(v.note) + '</p>';
               }).join('') + '</div>'
             : '') +
+          // Without this a disputed word can never be corrected — it just sits there.
+          (w.status === 'disputed'
+            ? '<button class="btn btn-ghost btn-sm" type="button" data-revise="' + esc(w.id) + '">' +
+              '✎ Fix and resubmit</button>'
+            : '') +
           '</div>';
       }).join('');
     });
+  }
+
+  /* Load a disputed word back into the contribute form. Submitting then calls
+     Verify.reviseAndResubmit rather than creating a second entry, so the word
+     keeps its identity, its votes history and its author credit. */
+  function loadForRevision(wordId) {
+    global.Store.getWord(wordId).then(function (w) {
+      if (!w) return;
+      state.revisingId = w.id;
+
+      $('#c-gurmukhi').value = w.gurmukhi;
+      $('#c-latin').value = w.latin;
+      $('#c-latin').dataset.touched = '1';   // don't overwrite an author's own spelling
+      $('#c-meaning').value = w.meaning;
+      $('#c-category').value = w.category;
+      $('#c-pos').value = w.pos;
+      $('#c-tier').value = w.tier;
+      $('#c-dialect').value = w.dialect;
+      $('#c-emoji').value = w.emoji;
+      $('#c-example').value = (w.example && w.example.gurmukhi) || '';
+      $('#c-notes').value = w.notes || '';
+
+      $('#revision-banner').hidden = false;
+      $('#contribute-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      toast('Loaded for revision — fix it and resubmit.', 'good');
+    });
+  }
+
+  function cancelRevision() {
+    state.revisingId = null;
+    $('#revision-banner').hidden = true;
+    $('#contribute-form').reset();
+    $('#c-latin').dataset.touched = '';
+    $('#dupe-warning').hidden = true;
   }
 
   function checkDuplicates() {
@@ -545,6 +603,44 @@
     ['gurmukhi', 'meaning', 'example'].forEach(function (f) {
       $('#err-' + f).hidden = true;
     });
+
+    // Revising a disputed word updates it in place and sends it back for
+    // another round, rather than creating a duplicate entry.
+    if (state.revisingId) {
+      var check = global.Contribute.validate(draft);
+      if (!check.valid) {
+        Object.keys(check.errors).forEach(function (field) {
+          var el = $('#err-' + field);
+          if (el) { el.textContent = check.errors[field]; el.hidden = false; }
+        });
+        toast('Please fix the highlighted fields.', 'warn');
+        return;
+      }
+
+      global.Verify.reviseAndResubmit(state.revisingId, {
+        gurmukhi: draft.gurmukhi.trim(),
+        latin: draft.latin.trim() || global.Contribute.transliterate(draft.gurmukhi),
+        pos: draft.pos,
+        meaning: draft.meaning.trim(),
+        category: draft.category,
+        tier: draft.tier,
+        dialect: draft.dialect,
+        emoji: draft.emoji.trim(),
+        example: {
+          gurmukhi: draft.example.gurmukhi.trim(),
+          latin: global.Contribute.transliterate(draft.example.gurmukhi)
+        },
+        notes: draft.notes.trim()
+      }).then(function () {
+        cancelRevision();
+        renderMySubmissions();
+        refreshBadges();
+        toast('Resubmitted for review.', 'good');
+      }).catch(function (err) {
+        toast(err.message || 'Could not resubmit that word.', 'bad');
+      });
+      return;
+    }
 
     global.Contribute.submit(draft, state.recording).then(function (result) {
       if (!result.ok) {
@@ -708,6 +804,85 @@
   }
 
   /* ══════════════════════════════════════════════════
+     TRANSLATE
+     ══════════════════════════════════════════════════ */
+
+  function renderTranslate() {
+    global.AiTutor.isConfigured().then(function (ok) {
+      $('#translate-setup').hidden = ok;
+      $('#btn-translate').disabled = !ok;
+    });
+  }
+
+  function runTranslation() {
+    var text = $('#translate-input').value.trim();
+    if (!text) { toast('Type something to translate first.', 'warn'); return; }
+
+    var box = $('#translate-result');
+    box.hidden = false;
+    box.innerHTML = '<div class="panel"><p class="muted">Translating…</p></div>';
+
+    var btn = $('#btn-translate');
+    btn.disabled = true;
+
+    global.AiTutor.translate(text, { direction: state.translateDir })
+      .then(function (result) {
+        state.lastTranslation = result;
+
+        box.innerHTML =
+          '<div class="panel translate-out">' +
+            '<p class="tr-gurmukhi" lang="pa">' + esc(result.gurmukhi) + '</p>' +
+            (result.latin ? '<p class="tr-latin">' + esc(result.latin) + '</p>' : '') +
+            (result.english ? '<p class="tr-english">' + esc(result.english) + '</p>' : '') +
+            (result.note ? '<p class="tr-note">' + esc(result.note) + '</p>' : '') +
+            '<div class="tr-actions">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-speak="' + esc(result.gurmukhi) + '">🔊 Hear it</button>' +
+              '<button class="btn btn-primary btn-sm" type="button" id="btn-save-translation">➕ Add to the dictionary</button>' +
+            '</div>' +
+            '<p class="hint">Machine translation — if you know this is right, adding it lets other speakers confirm it.</p>' +
+          '</div>';
+      })
+      .catch(function (err) {
+        box.innerHTML = '<div class="notice notice-warn">' +
+          esc(err.message || 'Translation failed.') + '</div>';
+        if (err.code === 'no-key') $('#translate-setup').hidden = false;
+      })
+      .then(function () { btn.disabled = false; });
+  }
+
+  /* Carry a translation into the contribute form. Machine output is a lead,
+     not a fact — it enters the same pending queue as anything else, so other
+     speakers still have to confirm it before anyone learns it. */
+  function saveTranslationToDictionary() {
+    var t = state.lastTranslation;
+    if (!t) return;
+
+    // Only a single word or short phrase makes sense as a dictionary entry.
+    var wordCount = t.gurmukhi.trim().split(/\s+/).length;
+    if (wordCount > 4) {
+      toast('That looks like a sentence — the dictionary holds words and short phrases.', 'warn');
+      return;
+    }
+
+    cancelRevision();
+    location.hash = '#/contribute';
+
+    // Let the route render before filling it in.
+    setTimeout(function () {
+      $('#c-gurmukhi').value = t.gurmukhi.trim();
+      $('#c-latin').value = t.latin || global.Contribute.transliterate(t.gurmukhi);
+      $('#c-latin').dataset.touched = '1';
+      $('#c-meaning').value = t.english || '';
+      $('#c-notes').value = t.note
+        ? 'From the translator. ' + t.note
+        : 'Added from the translator — please check it.';
+      checkDuplicates();
+      $('#c-gurmukhi').focus();
+      toast('Loaded into the form — check it, then submit for review.', 'good');
+    }, 60);
+  }
+
+  /* ══════════════════════════════════════════════════
      TUTOR
      ══════════════════════════════════════════════════ */
 
@@ -864,6 +1039,16 @@
     populateVoices();
     $('#settings-result').hidden = true;
     $('#settings-modal').hidden = false;
+
+    // Tell the user plainly which route is in play — whether their key is
+    // needed at all changes what the security warning means for them.
+    global.AiTutor.probeProxy().then(function (caps) {
+      $('#provider-ok').hidden = !caps.chat;
+      $('#provider-byo').hidden = !!caps.chat;
+      $('#provider-tts-note').textContent = caps.tts
+        ? 'Real Punjabi speech is available too.'
+        : 'Punjabi speech falls back to your browser’s voice.';
+    });
   }
 
   function populateVoices() {
@@ -1100,6 +1285,13 @@
     });
     $('#c-latin').addEventListener('input', function (e) { e.target.dataset.touched = '1'; });
     $('#contribute-form').addEventListener('submit', submitContribution);
+
+    // Disputed words: load back into the form so the author can correct them.
+    $('#my-submissions').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-revise]');
+      if (btn) loadForRevision(btn.dataset.revise);
+    });
+    $('#btn-cancel-revision').addEventListener('click', cancelRevision);
     $('#btn-record').addEventListener('click', toggleRecording);
     $('#btn-play-recording').addEventListener('click', function () {
       global.SpeechEngine.playBlob(state.recording);
@@ -1130,6 +1322,30 @@
       if (!voteBtn) return;
       var card = voteBtn.closest('[data-review]');
       if (card) castVote(card, voteBtn.dataset.vote);
+    });
+
+    /* ── translate ── */
+    $('#btn-translate').addEventListener('click', runTranslation);
+    $('#btn-translate-settings').addEventListener('click', openSettings);
+
+    $('#view-translate').addEventListener('click', function (e) {
+      var dir = e.target.closest('[data-dir]');
+      if (dir) {
+        state.translateDir = dir.dataset.dir;
+        $$('#view-translate [data-dir]').forEach(function (b) {
+          b.classList.toggle('active', b === dir);
+        });
+        return;
+      }
+      if (e.target.closest('#btn-save-translation')) saveTranslationToDictionary();
+    });
+
+    // Ctrl/Cmd+Enter submits — the textarea needs plain Enter for newlines.
+    $('#translate-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        runTranslation();
+      }
     });
 
     /* ── tutor ── */
@@ -1181,7 +1397,7 @@
     document.addEventListener('click', function (e) {
       var speaker = e.target.closest('[data-speak]');
       if (speaker) {
-        global.SpeechEngine.speak(speaker.dataset.speak, speakOpts());
+        global.SpeechEngine.speak(speaker.dataset.speak, speakOpts(speaker.dataset.speakWord));
         return;
       }
       var clip = e.target.closest('[data-play-clip]');

@@ -6,6 +6,8 @@
   <meta name="description" content="Learn theth Punjabi — and help record it. A community-built dictionary of rural Punjabi words." />
   <meta name="theme-color" content="#8B1A1A" />
   <title>ਬੋਲੀ · Bolee — Theth Punjabi</title>
+  <!-- Inline SVG favicon: no extra request, and no /favicon.ico 404. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%238B1A1A'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%23C9A227' font-family='sans-serif'%3E%E0%A8%AC%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -44,6 +46,7 @@
   <a href="#/practice"   data-nav="practice">   <span aria-hidden="true">🎯</span> <em>Practice</em></a>
   <a href="#/contribute" data-nav="contribute" data-adult-only><span aria-hidden="true">➕</span> <em>Add</em></a>
   <a href="#/review"     data-nav="review"     data-adult-only><span aria-hidden="true">🔍</span> <em>Review</em><span class="nav-badge" id="review-badge" hidden>0</span></a>
+  <a href="#/translate"  data-nav="translate"  data-adult-only><span aria-hidden="true">🔁</span> <em>Translate</em></a>
   <a href="#/tutor"      data-nav="tutor">      <span aria-hidden="true">💬</span> <em>Tutor</em></a>
   <a href="#/progress"   data-nav="progress">   <span aria-hidden="true">📊</span> <em>You</em></a>
 </nav>
@@ -141,6 +144,12 @@
     </div>
 
     <form class="panel" id="contribute-form" novalidate>
+      <div class="notice notice-warn" id="revision-banner" hidden>
+        <b>Fixing a disputed word.</b> Submitting replaces the existing entry and sends it
+        back for a fresh review — the old votes are cleared.
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-revision">Cancel</button>
+      </div>
+
       <label class="field">
         <span>Word in Gurmukhi <b class="req">*</b></span>
         <input type="text" id="c-gurmukhi" lang="pa" class="gurmukhi-input" placeholder="ਚੁੱਲ੍ਹਾ" autocomplete="off" />
@@ -248,6 +257,35 @@
     <div id="disputed-list" class="stack"></div>
   </section>
 
+  <!-- ══════════ TRANSLATE ══════════ -->
+  <section class="view" id="view-translate" hidden>
+    <div class="view-head">
+      <h1>ਉਲਥਾ <small>Translate</small></h1>
+      <p class="view-sub">English to Punjabi, or the other way. Answers lean towards theth words rather than the Hindi-Urdu borrowings you'd hear in the city.</p>
+    </div>
+
+    <div class="notice notice-warn" id="translate-setup" hidden>
+      <p><b>Translation isn't set up on this deployment.</b> Add your own Anthropic API key in Settings to use it.</p>
+      <button class="btn btn-sm btn-primary" id="btn-translate-settings" type="button">Open settings</button>
+    </div>
+
+    <div class="panel">
+      <div class="dir-row" role="group" aria-label="Direction">
+        <button class="pill active" type="button" data-dir="en-pa">English → ਪੰਜਾਬੀ</button>
+        <button class="pill" type="button" data-dir="pa-en">ਪੰਜਾਬੀ → English</button>
+      </div>
+
+      <label class="field">
+        <span class="sr-only">Text to translate</span>
+        <textarea id="translate-input" rows="3" placeholder="Type something to translate…"></textarea>
+      </label>
+
+      <button class="btn btn-primary btn-block" id="btn-translate" type="button">Translate</button>
+    </div>
+
+    <div id="translate-result" hidden></div>
+  </section>
+
   <!-- ══════════ TUTOR ══════════ -->
   <section class="view view-chat" id="view-tutor" hidden>
     <div class="view-head">
@@ -347,14 +385,22 @@
 
     <hr />
 
-    <h3>AI tutor</h3>
-    <div class="notice notice-warn compact">
-      This page talks to the Anthropic API directly from your browser, so your key is stored
-      here on this device and is visible to anything else running on this page. Use a personal
-      key with a spend limit — never a shared or production one.
+    <h3>AI tutor &amp; translator</h3>
+
+    <div class="notice notice-good compact" id="provider-ok" hidden>
+      <b>Ready.</b> This deployment provides the tutor and translator, so you don't need a key
+      of your own. <span id="provider-tts-note"></span>
     </div>
+
+    <div class="notice notice-warn compact" id="provider-byo" hidden>
+      This deployment doesn't provide the tutor, so it falls back to your own key — sent to
+      Anthropic straight from this page and stored on this device, where anything else running
+      on this page can read it. Use a personal key with a spend limit, never a shared or
+      production one.
+    </div>
+
     <label class="field">
-      <span>Anthropic API key</span>
+      <span>Anthropic API key <small class="muted">(only needed as a fallback)</small></span>
       <input type="password" id="s-apikey" placeholder="sk-ant-…" autocomplete="off" />
     </label>
     <label class="field">
@@ -384,11 +430,12 @@
 
 <script src="js/vocabulary.js"></script>
 <script src="js/store.js"></script>
+<script src="js/ai-tutor.js"></script>
+<script src="js/bhashini.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/practice.js"></script>
 <script src="js/contribute.js"></script>
 <script src="js/verify.js"></script>
-<script src="js/ai-tutor.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

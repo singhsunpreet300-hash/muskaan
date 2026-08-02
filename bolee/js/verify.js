@@ -169,9 +169,7 @@
         }).then(function (allVotes) {
           var result = tally(allVotes);
 
-          return global.Store.updateProfile({
-            votesCast: (profile.votesCast || 0) + 1
-          }).then(function () {
+          return global.Store.creditLedger(profile.id, { votesCast: 1 }).then(function () {
             if (result.status === 'pending') {
               return { ok: true, status: 'pending', tally: result };
             }
@@ -185,14 +183,19 @@
     },
 
     /**
-     * Apply a correction from a doubt vote to a disputed word and send it
-     * back for another round of review.
+     * Apply a correction to a disputed word and send it back for review.
+     *
+     * The old votes are discarded first. Without that, the doubts raised
+     * against the previous text still count against the corrected one, and
+     * a single new vote would immediately re-settle it as disputed — the fix
+     * could never succeed.
      */
     reviseAndResubmit: function (wordId, patch) {
-      return global.Store.updateWord(wordId, Object.assign({}, patch, {
-        status: 'pending',
-        revisedAt: new Date().toISOString()
-      }));
+      return global.Store.clearVotes(wordId).then(function () {
+        var update = { status: 'pending', revisedAt: new Date().toISOString() };
+        Object.keys(patch || {}).forEach(function (k) { update[k] = patch[k]; });
+        return global.Store.updateWord(wordId, update);
+      });
     },
 
     /** Numbers for the progress / community view. */
@@ -226,46 +229,38 @@
   };
 
   /* ── settle: flip status, pay reputation ────────────
-     Contributor is credited/debited for the outcome, and every voter who
+     The author is credited or debited for the outcome, and every voter who
      called it correctly gains a point. Voters on the losing side lose
      nothing — punishing dissent would suppress the corrections that make
-     this dataset worth trusting.                                       */
+     this dataset worth trusting.
+
+     Credits go through the ledger, keyed by contributor id. Settlement is
+     always triggered by a voter and never by the author (self-votes are
+     rejected), so anything keyed off "the current profile" would credit the
+     wrong person — which is exactly the bug this replaces.                */
 
   function settle(word, result, votes) {
     var winning = result.status === 'verified' ? 'confirm' : 'doubt';
+    var verified = result.status === 'verified';
 
     return global.Store.updateWord(word.id, {
       status: result.status,
       settledAt: new Date().toISOString()
     }).then(function () {
-      return global.Store.getProfile();
-    }).then(function (me) {
-      var patch = {};
-
-      // Reputation for the contributor — only reachable when the contributor
-      // is this device's user, which is the local-first reality today. A shared
-      // backend would apply this server-side to the word's actual author.
-      if (word.contributorId === me.id) {
-        var delta = result.status === 'verified'
-          ? CONFIG.REP_WORD_VERIFIED
-          : CONFIG.REP_WORD_DISPUTED;
-        patch.reputation = (me.reputation || 0) + delta;
-        if (result.status === 'verified') {
-          patch.verifiedCount = (me.verifiedCount || 0) + 1;
-        }
-      }
-
-      // Reputation for voters who matched the outcome.
+      // Pay the author, whoever they are.
+      return global.Store.creditLedger(word.contributorId, verified
+        ? { reputation: CONFIG.REP_WORD_VERIFIED, verifiedCount: 1 }
+        : { reputation: CONFIG.REP_WORD_DISPUTED, disputedCount: 1 });
+    }).then(function () {
+      // Pay every voter who matched the outcome, not just the deciding one.
+      var winners = {};
       votes.forEach(function (v) {
-        if (v.voterId !== me.id) return;
-        if (v.value === winning) {
-          patch.reputation = (patch.reputation !== undefined ? patch.reputation : (me.reputation || 0))
-                             + CONFIG.REP_VOTE_CAST;
-        }
+        if (v.value === winning && v.voterId) winners[v.voterId] = true;
       });
 
-      if (Object.keys(patch).length === 0) return null;
-      return global.Store.updateProfile(patch);
+      return Promise.all(Object.keys(winners).map(function (voterId) {
+        return global.Store.creditLedger(voterId, { reputation: CONFIG.REP_VOTE_CAST });
+      }));
     });
   }
 

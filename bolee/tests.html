@@ -30,11 +30,12 @@
 
 <script src="js/vocabulary.js"></script>
 <script src="js/store.js"></script>
+<script src="js/ai-tutor.js"></script>
+<script src="js/bhashini.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/practice.js"></script>
 <script src="js/contribute.js"></script>
 <script src="js/verify.js"></script>
-<script src="js/ai-tutor.js"></script>
 
 <script>
 /* Dependency-free runner. Tests target pure logic only —
@@ -120,6 +121,46 @@ check('every word is written in Gurmukhi', nonGurmukhi.length === 0);
 var kidsPool = V.filter(function (w) { return w.tier <= 2; });
 check('kids mode has a usable pool (' + kidsPool.length + ' words)', kidsPool.length >= 100);
 
+/* REGRESSION — kids tap-answers render as emoji, so two words sharing one
+   inside a category can produce a question with no identifiable answer. */
+var emojiClashes = [];
+var seenEmoji = {};
+V.forEach(function (w) {
+  var key = w.category + '|' + w.emoji;
+  if (seenEmoji[key]) emojiClashes.push(key);
+  seenEmoji[key] = true;
+});
+check('no two words share an emoji within a category', emojiClashes.length === 0,
+      emojiClashes.slice(0, 5).join(', '));
+
+/* ══════════════ regression: emoji distractors ══════════════ */
+group('Emoji distractors (regression)');
+
+// Force a collision the seed data no longer has, and confirm the guard holds.
+var clashPool = [
+  { id: 'a', category: 'farm', emoji: '🌾', meaning: 'field',  gurmukhi: 'ਖੇਤ',  latin: 'khet' },
+  { id: 'b', category: 'farm', emoji: '🌾', meaning: 'wheat',  gurmukhi: 'ਕਣਕ', latin: 'kanak' },
+  { id: 'c', category: 'farm', emoji: '🌾', meaning: 'crop',   gurmukhi: 'ਫ਼ਸਲ', latin: 'fasal' },
+  { id: 'd', category: 'farm', emoji: '🐄', meaning: 'cow',    gurmukhi: 'ਗਾਂ',  latin: 'gaan' },
+  { id: 'e', category: 'farm', emoji: '🐂', meaning: 'ox',     gurmukhi: 'ਬਲਦ', latin: 'balad' },
+  { id: 'f', category: 'farm', emoji: '🚜', meaning: 'tractor',gurmukhi: 'ਟਰੈਕਟਰ', latin: 'traictar' }
+];
+var target = clashPool[0];
+var clashFree = true;
+for (var r = 0; r < 40; r++) {
+  var picks = window.Practice._pickDistractors(target, clashPool, 3, { distinctEmoji: true });
+  picks.forEach(function (pick) { if (pick.emoji === target.emoji) clashFree = false; });
+  var emojis = {};
+  picks.forEach(function (pick) {
+    if (emojis[pick.emoji]) clashFree = false;
+    emojis[pick.emoji] = true;
+  });
+}
+check('emoji distractors never duplicate the target emoji', clashFree);
+check('emoji distractors are distinct from each other', clashFree);
+check('non-emoji questions may still use same-emoji distractors',
+      window.Practice._pickDistractors(target, clashPool, 3).length === 3);
+
 /* ══════════════ SRS ══════════════ */
 group('Spaced repetition (Practice.grade)');
 
@@ -149,6 +190,21 @@ var floorCard = { reps: 0, lapses: 0, ease: 1.3, interval: 5, dueAt: null };
 for (var i = 0; i < 5; i++) floorCard = P.grade(floorCard, false, T0);
 check('ease never falls below the floor', floorCard.ease >= P.SRS.MIN_EASE);
 
+/* REGRESSION — uncapped ease compounded into 1904-day intervals, which
+   silently deletes a well-known word from the learner's life. */
+var runaway = null;
+var maxSeen = 0;
+for (var k = 0; k < 30; k++) {
+  runaway = P.grade(runaway, true, T0);
+  maxSeen = Math.max(maxSeen, runaway.interval);
+}
+check('ease is capped after 30 correct answers (' + runaway.ease + ')',
+      runaway.ease <= P.SRS.MAX_EASE);
+check('interval is capped at a year (' + maxSeen + ' days)',
+      maxSeen <= P.SRS.MAX_INTERVAL);
+check('a well-known word still resurfaces within a year',
+      new Date(runaway.dueAt).getTime() - T0 <= P.SRS.MAX_INTERVAL * DAY);
+
 check('a never-seen card is due', P.isDue(null, T0));
 check('a future card is not due', !P.isDue({ dueAt: new Date(T0 + DAY).toISOString() }, T0));
 check('a past-due card is due', P.isDue({ dueAt: new Date(T0 - DAY).toISOString() }, T0));
@@ -165,6 +221,19 @@ check('one-letter romanisation slip accepted', P.checkAnswer(q, 'chullha').corre
 check('an unrelated word is rejected', !P.checkAnswer(q, 'ਰੋਟੀ').correct);
 check('empty answer is rejected', !P.checkAnswer(q, '').correct);
 check('a far-off romanisation is rejected', !P.checkAnswer(q, 'tandoor').correct);
+
+/* REGRESSION — an unconditional edit distance of 1 accepted a different real
+   word: "char" for "ghar", and ਚਾਰ chaar exists. The app was confirming a
+   wrong answer as correct. */
+var shortQ = { answer: 'ਘਰ', acceptLatin: 'ghar' };
+check('"char" is NOT accepted for "ghar"', !P.checkAnswer(shortQ, 'char').correct);
+check('"ghar" is still accepted for "ghar"', P.checkAnswer(shortQ, 'ghar').correct);
+check('a short word demands an exact romanisation',
+      !P.checkAnswer({ answer: 'ਦਿਨ', acceptLatin: 'din' }, 'bin').correct);
+check('a long word still forgives one slip',
+      P.checkAnswer({ answer: 'ਚੁੱਲ੍ਹਾ', acceptLatin: 'chulha' }, 'chullha').correct);
+check('a long word with a different first letter is rejected',
+      !P.checkAnswer({ answer: 'ਚੁੱਲ੍ਹਾ', acceptLatin: 'chulha' }, 'thulha').correct);
 
 /* ══════════════ blanking ══════════════ */
 group('Example blanking');
@@ -188,6 +257,26 @@ check('handles bindi/tippi as n (ਚੰਨ)', C.transliterate('ਚੰਨ').index
 check('returns empty for empty input', C.transliterate('') === '');
 check('output contains no Gurmukhi', !GURMUKHI.test(C.transliterate('ਚੁੱਲ੍ਹਾ')),
       'got: ' + C.transliterate('ਚੁੱਲ੍ਹਾ'));
+
+/* REGRESSION — the addak doubles the FOLLOWING consonant, but the inherent
+   vowel before it was being dropped: ਮੱਝ came out "mjjh" instead of "majjh".
+   Every geminated word got a wrong auto-filled romanisation. */
+[['ਮੱਝ', 'majjh'], ['ਸੱਥ', 'satth'], ['ਪੁੱਤ', 'putt'],
+ ['ਮੱਖਣ', 'makkhan'], ['ਦੁੱਧ', 'duddh'], ['ਕੱਕਰ', 'kakkar']].forEach(function (pair) {
+  var got = C.transliterate(pair[0]);
+  check('gemination: ' + pair[0] + ' → ' + pair[1], got === pair[1], 'got: ' + got);
+});
+
+/* REGRESSION — independent vowels carry their own vowel and must not also
+   take the inherent 'a', or ਅੱਜ comes out "aajj". */
+[['ਅੱਜ', 'ajj'], ['ਆਟਾ', 'aataa'], ['ਇੱਕ', 'ikk']].forEach(function (pair) {
+  var got = C.transliterate(pair[0]);
+  check('independent vowel: ' + pair[0] + ' → ' + pair[1], got === pair[1], 'got: ' + got);
+});
+
+var leaks = V.filter(function (w) { return GURMUKHI.test(C.transliterate(w.gurmukhi)); });
+check('no seed word leaks Gurmukhi through transliteration', leaks.length === 0,
+      leaks.slice(0, 3).map(function (w) { return w.gurmukhi; }).join(', '));
 
 /* ══════════════ dedupe normalisation ══════════════ */
 group('Duplicate normalisation');
@@ -290,6 +379,142 @@ Store.init()
   .then(function (pending) {
     check('no seed word is pending', pending.length === 0);
   })
+
+  /* ══════════════ regression: reputation ledger ══════════════ */
+  .then(function () {
+    group('Reputation ledger (regression)');
+    return Store.reset();
+  })
+  .then(function () { return Store.getProfile(); })
+  .then(function (author) {
+    var authorId = author.id;
+
+    /* A word is settled by whoever casts the deciding vote, and self-votes are
+       rejected — so the old code, which credited "the current profile", could
+       never credit the author. The +2 was unreachable. */
+    return Contribute.submit({ gurmukhi: 'ਟੋਕਰੀ', meaning: 'woven basket', category: 'home' })
+      .then(function (res) {
+        var wordId = res.word.id;
+        var chain = Promise.resolve();
+        [1, 2, 3].forEach(function (n) {
+          chain = chain
+            .then(function () { return Store.updateProfile({ id: 'reviewer-' + n }); })
+            .then(function () { return Verify.vote(wordId, 'confirm'); });
+        });
+        return chain
+          .then(function () { return Store.updateProfile({ id: authorId }); })
+          .then(function () { return Store.getWord(wordId); })
+          .then(function (word) {
+            check('three confirms verify the word', word.status === 'verified', 'got ' + word.status);
+            return Store.getLedger(authorId);
+          })
+          .then(function (entry) {
+            check('the AUTHOR earns +2, not the voter', entry.reputation === 2,
+                  'author reputation = ' + entry.reputation);
+            check('the author\'s verifiedCount increments', entry.verifiedCount === 1);
+            check('the author\'s submitted count is tracked', entry.submitted === 1);
+            return Store.getLedger('reviewer-1');
+          })
+          .then(function (rev) {
+            check('a voter matching the outcome earns +1', rev.reputation === 1,
+                  'reviewer reputation = ' + rev.reputation);
+            check('the voter\'s votesCast is tracked', rev.votesCast === 1);
+            return Store.getProfile();
+          })
+          .then(function (me) {
+            check('getProfile merges the ledger in', me.reputation === 2 && me.verifiedCount === 1);
+            check('vote weight rises with earned reputation', Verify.voteWeight(me.reputation) === 1);
+          });
+      });
+  })
+
+  /* ══════════════ regression: revise a disputed word ══════════════ */
+  .then(function () {
+    group('Disputed → revise (regression)');
+    return Store.reset();
+  })
+  .then(function () { return Store.getProfile(); })
+  .then(function (author) {
+    var authorId = author.id;
+    return Contribute.submit({ gurmukhi: 'ਟੋਕਰੀ', meaning: 'wrong meaning', category: 'home' })
+      .then(function (res) {
+        var wordId = res.word.id;
+        var chain = Promise.resolve();
+        [1, 2, 3].forEach(function (n) {
+          chain = chain
+            .then(function () { return Store.updateProfile({ id: 'doubter-' + n }); })
+            .then(function () { return Verify.vote(wordId, 'doubt', { note: 'wrong' }); });
+        });
+        return chain
+          .then(function () { return Store.updateProfile({ id: authorId }); })
+          .then(function () { return Store.getWord(wordId); })
+          .then(function (word) {
+            check('three doubts dispute the word', word.status === 'disputed');
+            return Verify.reviseAndResubmit(wordId, { meaning: 'woven basket' });
+          })
+          .then(function () { return Store.getWord(wordId); })
+          .then(function (word) {
+            check('revision returns it to pending', word.status === 'pending');
+            check('the correction is applied', word.meaning === 'woven basket');
+            return Store.getVotes(wordId);
+          })
+          .then(function (votes) {
+            /* Without clearing them, the old doubts still count and a single
+               new vote re-disputes the fix instantly — it could never pass. */
+            check('stale doubts are cleared on revision', votes.length === 0,
+                  votes.length + ' votes survived');
+            return Store.updateProfile({ id: 'fresh-voter' });
+          })
+          .then(function () { return Verify.vote(wordId, 'confirm'); })
+          .then(function (r) {
+            check('a revised word is not instantly re-disputed', r.status === 'pending',
+                  'got ' + r.status);
+            return Store.updateProfile({ id: authorId });
+          });
+      });
+  })
+
+  /* ══════════════ providers degrade quietly ══════════════ */
+  .then(function () {
+    group('Provider fallback');
+
+    // No proxy exists on this static test host, so the probe must resolve
+    // false rather than reject — an unavailable provider is a normal state.
+    return window.AiTutor.probeProxy();
+  })
+  .then(function (caps) {
+    check('proxy probe resolves instead of throwing', typeof caps === 'object');
+    check('probe reports chat unavailable with no function host', caps.chat === false);
+    return window.Bhashini.isAvailable();
+  })
+  .then(function (ok) {
+    check('Bhashini reports unavailable without a proxy', ok === false);
+    return window.Bhashini.synthesise('ਘਰ');
+  })
+  .then(function (blob) {
+    check('Bhashini returns null rather than throwing', blob === null);
+    return window.AiTutor.isConfigured();
+  })
+  .then(function (configured) {
+    check('tutor reports unconfigured with no proxy and no key', configured === false);
+    return window.AiTutor.provider();
+  })
+  .then(function (which) {
+    check('provider resolves to "none" when nothing is set up', which === 'none');
+    // The whole point of the ladder: speech still resolves, never rejects.
+    return window.SpeechEngine.speak('ਘਰ', { wordId: null });
+  })
+  .then(function (spoke) {
+    check('speak() resolves even with every provider unavailable',
+          spoke === true || spoke === false);
+    return window.AiTutor.translate('house').then(function () {
+      check('translate without a provider should reject', false);
+    }).catch(function (err) {
+      check('translate rejects with a coded error, not a crash', !!err.code, 'code: ' + err.code);
+    });
+  })
+  .then(function () { return Store.reset(); })
+
   .then(function () {
     var el = document.getElementById('summary');
     el.className = failed === 0 ? 'ok' : 'fail';
