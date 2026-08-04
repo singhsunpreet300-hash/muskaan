@@ -130,9 +130,12 @@
      * The ladder, best first:
      *   1. a contributor's own recording — a native speaker saying a theth
      *      word beats any synthesiser, and it's why we collect them
-     *   2. Bhashini Punjabi TTS — real pa voice, when the deployment has it
-     *   3. the browser's own voice — almost always a Hindi stand-in
-     *   4. nothing, resolved quietly
+     *   2. a shipped clip — pre-generated Punjabi speech bundled with the app.
+     *      Synthesised, not human, but offline, instant and free, and above
+     *      Bhashini precisely because it costs no round trip and no key
+     *   3. Bhashini Punjabi TTS — live pa voice, when the deployment has it
+     *   4. the browser's own voice — almost always a Hindi stand-in
+     *   5. nothing, resolved quietly
      *
      * Never rejects. A caller chains UI off this without a try/catch, and a
      * missing provider must never become a visible error.
@@ -155,16 +158,57 @@
       return human.then(function (clip) {
         if (clip) return self.playBlob(clip);
 
-        // 2. Bhashini Punjabi TTS.
-        var punjabi = global.Bhashini
-          ? global.Bhashini.synthesise(text).catch(function () { return null; })
-          : Promise.resolve(null);
+        // 2. A clip bundled with the app, if this word has one.
+        var shipped = self.shippedClipFor(text);
+        if (shipped) {
+          return self.playUrl(shipped).then(function (ok) {
+            if (ok) return true;
+            // A missing or corrupt file must not swallow the word — keep going.
+            return nextRungs();
+          });
+        }
 
-        return punjabi.then(function (blob) {
-          if (blob) return self.playBlob(blob);
-          // 3. Browser voice.
-          return self.speakWithBrowser(text, opts);
-        });
+        return nextRungs();
+
+        function nextRungs() {
+          // 3. Bhashini Punjabi TTS.
+          var punjabi = global.Bhashini
+            ? global.Bhashini.synthesise(text).catch(function () { return null; })
+            : Promise.resolve(null);
+
+          return punjabi.then(function (blob) {
+            if (blob) return self.playBlob(blob);
+            // 4. Browser voice.
+            return self.speakWithBrowser(text, opts);
+          });
+        }
+      });
+    },
+
+    /** Path to a bundled clip for this exact word, or null. */
+    shippedClipFor: function (text) {
+      var map = global.BOLEE_AUDIO;
+      if (!map || !text) return null;
+      return map[String(text).trim()] || null;
+    },
+
+    /** True when a word has bundled audio — lets the UI say where sound comes from. */
+    hasShippedClip: function (text) {
+      return !!this.shippedClipFor(text);
+    },
+
+    /** Play an audio file by URL. Resolves false rather than throwing. */
+    playUrl: function (url) {
+      if (!url) return Promise.resolve(false);
+      return new Promise(function (resolve) {
+        var audio = new Audio(url);
+        var settled = false;
+        function done(ok) { if (!settled) { settled = true; resolve(ok); } }
+        audio.onended = function () { done(true); };
+        audio.onerror = function () { done(false); };
+        // Guard against a file that stalls rather than erroring.
+        setTimeout(function () { done(false); }, 10000);
+        audio.play().catch(function () { done(false); });
       });
     },
 

@@ -701,6 +701,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
 .wm-actions { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; margin-bottom: 14px; }
 .wm-example { padding: 13px; border-radius: var(--radius); background: var(--surface-2); text-align: center; }
 .wm-example p[lang="pa"] { font-family: var(--font-pa); font-size: 1.15rem; }
+.wm-audio-note {
+  font-size: .76rem; color: var(--ink-soft); text-align: center;
+  margin: -6px 0 12px;
+}
 .wm-notes { font-size: .86rem; font-style: italic; color: var(--ink-soft); }
 .wm-credit { font-size: .76rem; color: var(--ink-soft); text-align: center; }
 

@@ -268,6 +268,14 @@
           '<button class="btn btn-primary" data-speak="' + esc(w.gurmukhi) + '" data-speak-word="' + esc(w.id) + '">🔊 Hear it</button>' +
           (w.hasAudio ? '<button class="btn btn-ghost" data-play-clip="' + esc(w.id) + '">🎙 Speaker recording</button>' : '') +
         '</div>' +
+        // Say plainly where the sound comes from — a bundled clip is
+        // synthesised, and the UI should not let anyone assume otherwise.
+        (w.hasAudio
+          ? '<p class="wm-audio-note">🎙 A contributor recorded this word.</p>'
+          : global.SpeechEngine.hasShippedClip(w.gurmukhi)
+            ? '<p class="wm-audio-note">🔈 Built-in Punjabi audio — computer-generated, not a human speaker. ' +
+              'If you say it better, record it in the Add view.</p>'
+            : '') +
         example +
         '<div id="wm-explain"></div>' +
         (w.notes ? '<p class="wm-notes">' + esc(w.notes) + '</p>' : '') +

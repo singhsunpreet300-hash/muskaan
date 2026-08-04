@@ -30,6 +30,7 @@
 
 <script src="js/vocabulary.js"></script>
 <script src="data/phrases.js"></script>
+<script src="data/audio-map.js"></script>
 <script src="data/lessons.js"></script>
 <script src="js/store.js"></script>
 <script src="js/content.js"></script>
@@ -551,6 +552,48 @@ Store.init()
         check('every explanation has usage text and a worked example', badExp.length === 0,
               badExp.slice(0, 3).map(function (w) { return w.gurmukhi; }).join(', '));
       });
+  })
+
+  /* ══════════════ shipped audio clips ══════════════ */
+  .then(function () {
+    group('Shipped pronunciation clips');
+
+    var AUDIO = window.BOLEE_AUDIO || {};
+    var keys = Object.keys(AUDIO);
+    check('audio map is present (' + keys.length + ' clips)', keys.length > 100);
+
+    var orphan = keys.filter(function (k) {
+      return !V.some(function (w) { return w.gurmukhi === k; });
+    });
+    check('every clip maps to a real word', orphan.length === 0, orphan.slice(0, 5).join(', '));
+
+    var badPath = keys.filter(function (k) { return !/^audio\/[\w.-]+\.mp3$/.test(AUDIO[k]); });
+    check('every clip path is well formed', badPath.length === 0, badPath.slice(0, 3).join(', '));
+
+    var dupTarget = {}, collisions = [];
+    keys.forEach(function (k) {
+      if (dupTarget[AUDIO[k]]) collisions.push(AUDIO[k]);
+      dupTarget[AUDIO[k]] = true;
+    });
+    check('no two words share one clip file', collisions.length === 0, collisions.slice(0, 3).join(', '));
+
+    check('SpeechEngine resolves a covered word',
+          !!window.SpeechEngine.shippedClipFor(keys[0]));
+    check('SpeechEngine returns null for an uncovered word',
+          window.SpeechEngine.shippedClipFor('ਇਹਕੋਈਸ਼ਬਦਨਹੀਂ') === null);
+    check('hasShippedClip agrees with shippedClipFor',
+          window.SpeechEngine.hasShippedClip(keys[0]) === true &&
+          window.SpeechEngine.hasShippedClip('ਇਹਕੋਈਸ਼ਬਦਨਹੀਂ') === false);
+
+    // Every referenced file must actually exist — a broken path is silent.
+    return Promise.all(keys.slice(0, 12).map(function (k) {
+      return fetch(AUDIO[k], { method: 'HEAD' })
+        .then(function (r) { return r.ok; })
+        .catch(function () { return false; });
+    })).then(function (results) {
+      var missing = results.filter(function (r) { return !r; }).length;
+      check('sampled clip files all exist on disk', missing === 0, missing + ' of 12 missing');
+    });
   })
 
   /* ══════════════ local translation — zero network ══════════════ */
