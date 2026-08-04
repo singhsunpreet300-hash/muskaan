@@ -1,16 +1,474 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pa" data-mode="adult">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Muskaan — Learn Punjabi</title>
+  <meta name="description" content="Learn theth Punjabi — and help record it. A community-built dictionary of rural Punjabi words." />
+  <meta name="theme-color" content="#8B1A1A" />
+  <title>ਬੋਲੀ · Bolee — Theth Punjabi</title>
+  <!-- Inline SVG favicon: no extra request, and no /favicon.ico 404. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%238B1A1A'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%23C9A227' font-family='sans-serif'%3E%E0%A8%AC%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;600;800&family=Noto+Sans+Gurmukhi:wght@400;500;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <script src="vocabulary.js"></script>
-  <script src="script.js"></script>
+
+<!-- ══ HEADER ══ -->
+<header class="app-bar">
+  <a class="brand" href="#/learn">
+    <span class="brand-mark">ਬ</span>
+    <span class="brand-text">
+      <strong>ਬੋਲੀ</strong>
+      <small>Bolee · theth Punjabi</small>
+    </span>
+  </a>
+
+  <div class="app-bar-actions">
+    <span class="rep-chip" id="rep-chip" title="Your contributor reputation" hidden>
+      <span aria-hidden="true">⭐</span> <span id="rep-value">0</span>
+    </span>
+    <button class="icon-btn" id="btn-mode" type="button" title="Switch between kids and adult mode">
+      <span id="mode-icon" aria-hidden="true">🧑</span>
+      <span class="sr-only">Switch mode</span>
+    </button>
+    <button class="icon-btn" id="btn-settings" type="button" title="Settings">
+      <span aria-hidden="true">⚙️</span>
+      <span class="sr-only">Settings</span>
+    </button>
+  </div>
+</header>
+
+<!-- ══ NAV ══ -->
+<nav class="app-nav" id="app-nav" aria-label="Main">
+  <a href="#/learn"      data-nav="learn">      <span aria-hidden="true">📖</span> <em>Learn</em></a>
+  <a href="#/practice"   data-nav="practice">   <span aria-hidden="true">🎯</span> <em>Practice</em></a>
+  <a href="#/contribute" data-nav="contribute" data-adult-only><span aria-hidden="true">➕</span> <em>Add</em></a>
+  <a href="#/review"     data-nav="review"     data-adult-only><span aria-hidden="true">🔍</span> <em>Review</em><span class="nav-badge" id="review-badge" hidden>0</span></a>
+  <a href="#/translate"  data-nav="translate"  data-adult-only><span aria-hidden="true">🔁</span> <em>Translate</em></a>
+  <a href="#/tutor"      data-nav="tutor">      <span aria-hidden="true">💬</span> <em>Tutor</em></a>
+  <a href="#/progress"   data-nav="progress">   <span aria-hidden="true">📊</span> <em>You</em></a>
+</nav>
+
+<main id="main">
+
+  <!-- ══════════ LEARN ══════════ -->
+  <section class="view" id="view-learn" hidden>
+    <div class="view-head">
+      <h1>ਸ਼ਬਦ <small>Words</small></h1>
+      <p class="view-sub" id="learn-count">—</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">🔎</span>
+        <input type="search" id="search" placeholder="Search Gurmukhi, roman or meaning…" aria-label="Search words" />
+      </div>
+      <div class="filter-row" id="tier-filter" role="group" aria-label="Difficulty"></div>
+    </div>
+
+    <div class="chip-row" id="category-chips" role="group" aria-label="Category"></div>
+
+    <div class="word-grid" id="word-grid"></div>
+    <p class="empty-note" id="learn-empty" hidden>No words match that. Try another search.</p>
+  </section>
+
+  <!-- ══════════ PRACTICE ══════════ -->
+  <section class="view" id="view-practice" hidden>
+
+    <!-- setup -->
+    <div id="practice-setup">
+      <div class="view-head">
+        <h1>ਅਭਿਆਸ <small>Practice</small></h1>
+        <p class="view-sub" id="practice-due">—</p>
+      </div>
+
+      <div class="panel">
+        <label class="field">
+          <span>Category</span>
+          <select id="practice-category"></select>
+        </label>
+        <label class="field" data-adult-only>
+          <span>Difficulty</span>
+          <select id="practice-tier">
+            <option value="all">All levels</option>
+            <option value="1">Everyday</option>
+            <option value="2">Village</option>
+            <option value="3">Deep theth</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Questions</span>
+          <select id="practice-size">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </label>
+        <button class="btn btn-primary btn-block" id="btn-start-practice" type="button">Start</button>
+      </div>
+    </div>
+
+    <!-- running session -->
+    <div id="practice-run" hidden>
+      <div class="progress-bar"><div class="progress-fill" id="practice-progress"></div></div>
+      <p class="session-counter" id="session-counter">1 / 10</p>
+
+      <div class="q-card" id="q-card"></div>
+
+      <div class="q-feedback" id="q-feedback" hidden></div>
+
+      <button class="btn btn-primary btn-block" id="btn-next" type="button" hidden>Next</button>
+      <button class="btn btn-ghost btn-block" id="btn-quit" type="button">End session</button>
+    </div>
+
+    <!-- summary -->
+    <div id="practice-done" hidden>
+      <div class="summary-card">
+        <div class="summary-emoji" id="summary-emoji">🎉</div>
+        <h2 id="summary-title">Well done!</h2>
+        <p class="summary-score" id="summary-score">—</p>
+        <div class="summary-list" id="summary-list"></div>
+        <button class="btn btn-primary btn-block" id="btn-again" type="button">Practise again</button>
+        <button class="btn btn-ghost btn-block" id="btn-back-learn" type="button">Back to words</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ CONTRIBUTE ══════════ -->
+  <section class="view" id="view-contribute" hidden>
+    <div class="view-head">
+      <h1>ਸ਼ਬਦ ਜੋੜੋ <small>Add a word</small></h1>
+      <p class="view-sub">Know a word the app is missing? Add it. Other speakers will check it, and once it's confirmed everybody learns it.</p>
+    </div>
+
+    <form class="panel" id="contribute-form" novalidate>
+      <div class="notice notice-warn" id="revision-banner" hidden>
+        <b>Fixing a disputed word.</b> Submitting replaces the existing entry and sends it
+        back for a fresh review — the old votes are cleared.
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-cancel-revision">Cancel</button>
+      </div>
+
+      <label class="field">
+        <span>Word in Gurmukhi <b class="req">*</b></span>
+        <input type="text" id="c-gurmukhi" lang="pa" class="gurmukhi-input" placeholder="ਚੁੱਲ੍ਹਾ" autocomplete="off" />
+        <small class="field-error" id="err-gurmukhi" hidden></small>
+      </label>
+
+      <div id="dupe-warning" class="notice notice-warn" hidden></div>
+
+      <label class="field">
+        <span>Roman spelling</span>
+        <input type="text" id="c-latin" placeholder="filled in for you — edit if it looks wrong" autocomplete="off" />
+      </label>
+
+      <label class="field">
+        <span>English meaning <b class="req">*</b></span>
+        <input type="text" id="c-meaning" placeholder="traditional mud stove" autocomplete="off" />
+        <small class="field-error" id="err-meaning" hidden></small>
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Category</span>
+          <select id="c-category"></select>
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <select id="c-pos">
+            <option value="noun">noun</option>
+            <option value="verb">verb</option>
+            <option value="adj">adjective</option>
+            <option value="adv">adverb</option>
+            <option value="pron">pronoun</option>
+            <option value="interj">interjection</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Level</span>
+          <select id="c-tier">
+            <option value="1">Everyday — a child would know it</option>
+            <option value="2" selected>Village — common in the pind</option>
+            <option value="3">Deep theth — older, fading</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Dialect</span>
+          <select id="c-dialect"></select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Example sentence in Gurmukhi</span>
+        <input type="text" id="c-example" lang="pa" class="gurmukhi-input" placeholder="ਬੇਬੇ ਚੁੱਲ੍ਹੇ ਤੇ ਰੋਟੀ ਲਾਹ ਰਹੀ ਹੈ।" autocomplete="off" />
+        <small class="field-error" id="err-example" hidden></small>
+      </label>
+
+      <label class="field">
+        <span>Emoji <small class="muted">(helps children recognise it)</small></span>
+        <input type="text" id="c-emoji" maxlength="4" placeholder="🔥" class="emoji-input" />
+      </label>
+
+      <label class="field">
+        <span>Notes for reviewers</span>
+        <textarea id="c-notes" rows="2" placeholder="Where you heard it, who says it, anything unusual…"></textarea>
+      </label>
+
+      <div class="record-row" id="record-row" hidden>
+        <button type="button" class="btn btn-record" id="btn-record">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span id="record-label">Record how it sounds</span>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-play-recording" hidden>▶ Play</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-recording" hidden>✕ Clear</button>
+      </div>
+      <p class="hint" id="record-hint" hidden>Your own voice is the most valuable part — TTS gets theth pronunciation wrong.</p>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" id="btn-ask-ai">Ask the tutor first</button>
+        <button type="submit" class="btn btn-primary">Submit for review</button>
+      </div>
+
+      <div id="ai-draft-check" class="notice" hidden></div>
+      <div id="contribute-result" class="notice notice-good" hidden></div>
+    </form>
+
+    <h2 class="section-h">Your submissions</h2>
+    <div id="my-submissions" class="stack"></div>
+  </section>
+
+  <!-- ══════════ REVIEW ══════════ -->
+  <section class="view" id="view-review" hidden>
+    <div class="view-head">
+      <h1>ਪੜਤਾਲ <small>Review</small></h1>
+      <p class="view-sub" id="review-sub">Words waiting on speakers like you. Your vote counts <b id="my-weight">1</b>×.</p>
+    </div>
+
+    <div id="review-queue" class="stack"></div>
+    <p class="empty-note" id="review-empty" hidden>
+      Nothing to review right now. Words you added yourself don't appear here — someone else has to check those.
+    </p>
+
+    <h2 class="section-h" id="disputed-head" hidden>Disputed</h2>
+    <div id="disputed-list" class="stack"></div>
+  </section>
+
+  <!-- ══════════ TRANSLATE ══════════ -->
+  <section class="view" id="view-translate" hidden>
+    <div class="view-head">
+      <h1>ਉਲਥਾ <small>Translate</small></h1>
+      <p class="view-sub">English to Punjabi, or the other way. Answers lean towards theth words rather than the Hindi-Urdu borrowings you'd hear in the city.</p>
+    </div>
+
+    <div class="notice notice-warn" id="translate-setup" hidden>
+      <p><b>Translation isn't set up on this deployment.</b> Add your own Anthropic API key in Settings to use it.</p>
+      <button class="btn btn-sm btn-primary" id="btn-translate-settings" type="button">Open settings</button>
+    </div>
+
+    <div class="panel">
+      <div class="dir-row" role="group" aria-label="Direction">
+        <button class="pill active" type="button" data-dir="en-pa">English → ਪੰਜਾਬੀ</button>
+        <button class="pill" type="button" data-dir="pa-en">ਪੰਜਾਬੀ → English</button>
+      </div>
+
+      <label class="field">
+        <span class="sr-only">Text to translate</span>
+        <textarea id="translate-input" rows="3" placeholder="Type something to translate…"></textarea>
+      </label>
+
+      <button class="btn btn-primary btn-block" id="btn-translate" type="button">Translate</button>
+    </div>
+
+    <div id="translate-result" hidden></div>
+  </section>
+
+  <!-- ══════════ TUTOR ══════════ -->
+  <section class="view view-chat" id="view-tutor" hidden>
+    <div class="view-head">
+      <h1>ਉਸਤਾਦ <small>Tutor</small></h1>
+    </div>
+
+    <div class="tab-row" role="tablist">
+      <button class="tab active" type="button" data-tab="lessons" role="tab">📖 Lessons</button>
+      <button class="tab" type="button" data-tab="phrases" role="tab">💬 Phrasebook</button>
+      <button class="tab" type="button" data-tab="chat" role="tab">✨ Ask</button>
+    </div>
+
+    <!-- Lessons and the phrasebook ship with the app and need nothing. -->
+    <div id="tab-lessons" class="tab-panel">
+      <div id="lesson-list" class="stack"></div>
+      <article id="lesson-detail" hidden>
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-lesson-back">← All lessons</button>
+        <div id="lesson-body"></div>
+      </article>
+    </div>
+
+    <div id="tab-phrases" class="tab-panel" hidden>
+      <div class="chip-row" id="phrase-groups"></div>
+      <div id="phrase-list" class="stack"></div>
+    </div>
+
+    <div id="tab-chat" class="tab-panel" hidden>
+      <div class="notice notice-warn" id="tutor-setup" hidden>
+        <p><b>Free-form questions need a live AI provider,</b> which is not set up on this
+        deployment. The lessons and phrasebook above work without one. To enable this tab,
+        add your own Anthropic API key in Settings.</p>
+        <button class="btn btn-sm btn-primary" id="btn-tutor-settings" type="button">Open settings</button>
+      </div>
+
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div class="chip-row" id="chat-suggestions"></div>
+
+      <form class="chat-input" id="chat-form">
+        <input type="text" id="chat-text" placeholder="Ask anything about Punjabi…" autocomplete="off" aria-label="Message" />
+        <button type="submit" class="btn btn-primary" id="chat-send" aria-label="Send">➤</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ══════════ PROGRESS ══════════ -->
+  <section class="view" id="view-progress" hidden>
+    <div class="view-head">
+      <h1>ਤੇਰਾ ਸਫ਼ਰ <small>Your journey</small></h1>
+    </div>
+
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <h2 class="section-h">Your contribution</h2>
+    <div class="stat-grid" id="contrib-grid"></div>
+
+    <h2 class="section-h">Words by category</h2>
+    <div id="category-progress" class="stack"></div>
+  </section>
+
+</main>
+
+<!-- ══ WORD DETAIL MODAL ══ -->
+<div class="modal" id="word-modal" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wm-gurmukhi">
+    <button class="modal-close" type="button" data-close-modal aria-label="Close">✕</button>
+    <div id="word-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS MODAL ══ -->
+<div class="modal" id="settings-modal" hidden>
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <button class="modal-close" type="button" data-close-modal aria-label="Close">✕</button>
+    <h2 id="settings-title">Settings</h2>
+
+    <label class="field">
+      <span>Your name <small class="muted">(shown on words you add)</small></span>
+      <input type="text" id="s-name" placeholder="Anonymous" />
+    </label>
+
+    <label class="field">
+      <span>Mode</span>
+      <select id="s-mode">
+        <option value="adult">Adult — full app, typing, contributing</option>
+        <option value="kids">Kids — big text, tap answers, no typing</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Theme</span>
+      <select id="s-theme">
+        <option value="auto">Match my device</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Your dialect</span>
+      <select id="s-dialect"></select>
+    </label>
+
+    <label class="field">
+      <span>Voice</span>
+      <select id="s-voice"></select>
+      <small class="hint" id="voice-hint"></small>
+    </label>
+
+    <label class="field">
+      <span>Speaking speed — <b id="rate-value">0.85</b>×</span>
+      <input type="range" id="s-rate" min="0.5" max="1.2" step="0.05" />
+    </label>
+
+    <label class="check">
+      <input type="checkbox" id="s-showlatin" />
+      <span>Show roman spelling next to Gurmukhi</span>
+    </label>
+
+    <hr />
+
+    <h3>AI tutor &amp; translator</h3>
+
+    <div class="notice notice-good compact">
+      <b>No key is needed for most of the app.</b> The dictionary, practice, word explanations,
+      lessons and phrasebook are all built in and work offline. A provider is only used for
+      free-form questions and for translating phrases that aren't already in the dictionary.
+    </div>
+
+    <div class="notice notice-good compact" id="provider-ok" hidden>
+      <b>A provider is set up on this deployment</b> — you don't need a key of your own.
+      <span id="provider-tts-note"></span>
+    </div>
+
+    <div class="notice notice-warn compact" id="provider-byo" hidden>
+      No provider is set up here, so free-form questions fall back to your own key — sent to
+      Anthropic straight from this page and stored on this device, where anything else running
+      on this page can read it. Use a personal key with a spend limit, never a shared or
+      production one.
+    </div>
+
+    <label class="field">
+      <span>Anthropic API key <small class="muted">(optional)</small></span>
+      <input type="password" id="s-apikey" placeholder="sk-ant-…" autocomplete="off" />
+    </label>
+    <label class="field">
+      <span>Model</span>
+      <select id="s-model">
+        <option value="claude-sonnet-5">Claude Sonnet 5 — balanced</option>
+        <option value="claude-opus-5">Claude Opus 5 — most capable</option>
+        <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — fastest</option>
+      </select>
+    </label>
+
+    <hr />
+
+    <h3>Your data</h3>
+    <p class="hint">Everything lives in this browser. Export before clearing site data, or to move to another device.</p>
+    <div class="form-actions wrap">
+      <button class="btn btn-ghost btn-sm" id="btn-export" type="button">⬇ Export JSON</button>
+      <button class="btn btn-ghost btn-sm" id="btn-import" type="button">⬆ Import</button>
+      <button class="btn btn-danger btn-sm" id="btn-reset" type="button">Reset everything</button>
+    </div>
+    <input type="file" id="import-file" accept="application/json,.json" hidden />
+    <div class="notice" id="settings-result" hidden></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/vocabulary.js"></script>
+<script src="data/phrases.js"></script>
+<script src="data/lessons.js"></script>
+<script src="js/store.js"></script>
+<script src="js/content.js"></script>
+<script src="js/ai-tutor.js"></script>
+<script src="js/bhashini.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/practice.js"></script>
+<script src="js/contribute.js"></script>
+<script src="js/verify.js"></script>
+<script src="js/translate.js"></script>
+<script src="js/script.js"></script>
 </body>
 </html>
